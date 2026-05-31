@@ -109,6 +109,8 @@ def main():
         
     ssid = input("Enter Wi-Fi SSID (mandatory): ").strip()
     password = input("Enter Wi-Fi Password (mandatory): ").strip()
+    custom_fw = input("Enter custom firmware path (leave blank for Stock Firmware): ").strip()
+    
     if not ssid or not password:
         print("Error: SSID and password are mandatory.")
         sys.exit(1)
@@ -165,7 +167,7 @@ def main():
                     speed = (written / 1024 / 1024) / (elapsed if elapsed > 0 else 1)
                     pct = (written / total_uncompressed) * 100
                     bar = '#' * int(pct / 2) + '-' * (50 - int(pct / 2))
-                    sys.stdout.write(f'\\r[{bar}] {pct:.1f}% | {written/1024/1024:.1f} MB | {speed:.1f} MB/s')
+                    sys.stdout.write(f'\r[{bar}] {pct:.1f}% | {written/1024/1024:.1f} MB | {speed:.1f} MB/s')
                     sys.stdout.flush()
         print("\n")
     except Exception as e:
@@ -201,7 +203,10 @@ def main():
             f.write("dtoverlay=waveshare35a,rotate=270\n")
 
     # 3. Inject EuclidCam Firmware Payload
-    firmware_src = os.path.abspath(os.path.join(base_dir, "../releases/firmware" if getattr(sys, 'frozen', False) else "../../releases/firmware"))
+    firmware_src = os.path.abspath(os.path.join(base_dir, "../releases/stock_firmware" if getattr(sys, 'frozen', False) else "../../releases/stock_firmware"))
+    if custom_fw and os.path.exists(custom_fw):
+        firmware_src = os.path.abspath(custom_fw)
+        
     if os.path.exists(firmware_src):
         print(f"Injecting Firmware Payload from {firmware_src}...")
         shutil.copytree(firmware_src, os.path.join(boot_vol, "firmware_payload"), dirs_exist_ok=True)
@@ -268,12 +273,12 @@ write_files:
           if [ -d /boot/firmware/firmware_payload ]; then
               echo "Extracting firmware payload from /boot/firmware..."
               sudo mkdir -p /opt/euclidcam
-              sudo mv /boot/firmware/firmware_payload /opt/euclidcam/firmware
+              sudo mv /boot/firmware/firmware_payload /opt/euclidcam/stock_firmware
               sudo chown -R euclidcam:euclidcam /opt/euclidcam
           elif [ -d /boot/firmware_payload ]; then
               echo "Extracting firmware payload from /boot..."
               sudo mkdir -p /opt/euclidcam
-              sudo mv /boot/firmware_payload /opt/euclidcam/firmware
+              sudo mv /boot/firmware_payload /opt/euclidcam/stock_firmware
               sudo chown -R euclidcam:euclidcam /opt/euclidcam
           else
               echo "Error: Firmware payload not found!"
@@ -294,7 +299,7 @@ write_files:
           sudo apt-get install -y python3-numpy python3-pil python3-picamera2
           touch /opt/euclidcam/.setup_done
       fi
-      cd /opt/euclidcam/firmware || exit 1
+      cd /opt/euclidcam/stock_firmware || exit 1
       export DISPLAY=:0
       python3 main.py
   - path: /etc/profile.d/99-euclidcam.sh

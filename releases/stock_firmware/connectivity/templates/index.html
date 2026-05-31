@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EuclidCam | Gallery</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <img src="{{ url_for('static', filename='euclid_construction.gif') }}" alt="EuclidCam Logo" class="hero-gif">
+        <h2 class="subtitle">Roll</h2>
+    </header>
+
+    <div class="batch-actions" id="batch-actions">
+        <button class="btn-batch-delete" onclick="deleteSelected()">Delete Selected (<span
+                id="select-count">0</span>)</button>
+    </div>
+
+    <main class="gallery">
+        {% for image in images %}
+        <div class="card" id="card-{{ loop.index }}">
+            <input type="checkbox" class="select-checkbox" data-filename="{{ image }}" onchange="updateSelection()">
+            <img src="{{ url_for('serve_image', filename=image) }}" alt="{{ image }}">
+            <div class="actions">
+                <span class="filename">{{ image }}</span>
+                <div class="buttons">
+                    <a href="{{ url_for('serve_image', filename=image) }}" download class="btn download">Save</a>
+                    <button onclick="deleteImage('{{ image }}')" class="btn delete">Drop</button>
+                    </div>
+                    </div>
+                    </div>
+        {% else %}
+        <div class="empty">
+            <p>Damn Dawg! Thought I was doing a good job</p>
+            </div>
+        {% endfor %}
+    </main>
+<script>
+    function updateSelection() {
+        const selected = document.querySelectorAll('.select-checkbox:checked');
+        const batchActions = document.getElementById('batch-actions');
+        const countSpan = document.getElementById('select-count');
+
+        if (selected.length > 0) {
+            batchActions.style.display = 'block';
+            countSpan.textContent = selected.length;
+        } else {
+            batchActions.style.display = 'none';
+        }
+    }
+
+    async function deleteImage(filename) {
+        if (!confirm(`Discard this proof? ${filename}`)) return;
+
+        try {
+            const response = await fetch(`/delete/${filename}`, { method: 'POST' });
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Deletion failed.');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    async function deleteSelected() {
+        const selected = Array.from(document.querySelectorAll('.select-checkbox:checked'))
+            .map(cb => cb.dataset.filename);
+
+        if (selected.length === 0) return;
+        if (!confirm(`Discard all ${selected.length} selected proofs?`)) return;
+
+        try {
+            const response = await fetch('/delete-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filenames: selected })
+            });
+
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Batch deletion failed.');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+</script>
+<footer>
+    <div class="storage-container">
+        <div class="storage-info">
+            <div class="storage-text">Free: {{ storage.free }} / {{ storage.total }}</div>
+            <div class="storage-bar">
+                <div class="storage-progress" style="width: {{ storage.percent }}%"></div>
+            </div>
+        </div>
+    </div>
+    <p>&copy; 2026 EuclidCam | Captured with Curiosity</p>
+</footer>
+</body>
+</html>

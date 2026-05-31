@@ -1,0 +1,8 @@
+{
+  "image": {
+    "filename": "os.img.xz",
+    "url": "https://downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2026-04-21/2026-04-21-raspios-trixie-armhf-lite.img.xz",
+    "hash_type": "sha256",
+    "hash": "f393b8bc3fc49aef49ddc5d5af124333002f34e4b23ede439789145e5280d210"
+  }
+}

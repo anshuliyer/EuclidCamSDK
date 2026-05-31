@@ -1,0 +1,311 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&family=Permanent+Marker&display=swap');
+:root {
+    --mauve: #E0B0FF;
+    --bg-dark: #121212;
+    --card-bg: #1E1E1E;
+    --text-main: #FFFFFF;
+    --text-dim: #A0A0A0;
+}
+
+body {
+    background-color: #000;
+    color: var(--text-main);
+    font-family: 'Inter', system-ui, sans-serif;
+    margin: 0;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+header {
+    width: 100%;
+    margin-bottom: 60px;
+        display: flex;
+    flex-direction: column;
+        align-items: center;
+    text-align: center;
+    }
+    
+    .header-left {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .storage-info {
+        text-align: right;
+        min-width: 200px;
+    }
+    
+    .storage-text {
+        font-size: 0.8rem;
+        color: var(--text-dim);
+        margin-bottom: 8px;
+    }
+    
+    .storage-bar {
+        width: 100%;
+    height: 6px;
+        background: #333;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    
+    .storage-progress {
+        height: 100%;
+        background: var(--mauve);
+        border-radius: 3px;
+}
+
+.hero-gif {
+    max-width: 400px;
+    width: 90%;
+    margin: 0 auto;
+    display: block;
+}
+
+.subtitle {
+    margin-top: 20px;
+    color: var(--mauve);
+    font-size: 1.5rem;
+    font-weight: 300;
+    letter-spacing: 3px;
+        text-transform: uppercase;
+}
+
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 40px;
+    width: 100%;
+    max-width: 1200px;
+    padding: 20px;
+}
+
+.card {
+    background-color: #fff;
+        /* Polaroid white */
+        padding: 12px 12px 40px 12px;
+        /* Thick bottom border for polaroid */
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        border: none;
+        border-radius: 2px;
+}
+
+/* Tape effect */
+.card::before {
+    content: '';
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    width: 100px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateX(-50%) rotate(-2deg);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(2px);
+    border-left: 1px dashed rgba(255, 255, 255, 0.2);
+    border-right: 1px dashed rgba(255, 255, 255, 0.2);
+    z-index: 10;
+}
+
+.card:nth-child(even) {
+    transform: rotate(2deg);
+}
+
+.card:nth-child(odd) {
+    transform: rotate(-2deg);
+}
+
+.card:nth-child(3n) {
+    transform: rotate(1.5deg);
+}
+.card:hover {
+    transform: scale(1.05) rotate(0deg);
+        z-index: 20;
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5);
+}
+
+.card img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    display: block;
+    border: 1px solid #eee;
+}
+
+.actions {
+    padding: 10px 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+}
+
+.filename {
+    font-size: 0.75rem;
+        color: #555;
+        /* Dark text for polaroid label */
+        font-family: 'Permanent Marker', cursive, sans-serif;
+        /* Hand-drawn feel */
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .select-checkbox {
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        accent-color: var(--mauve);
+        z-index: 30;
+        border: 2px solid white;
+        border-radius: 4px;
+}
+
+.buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.btn {
+    flex: 1;
+    padding: 6px;
+        border-radius: 4px;
+    text-decoration: none;
+    text-align: center;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s;
+}
+
+.download {
+    background-color: #eee;
+        color: #333;
+}
+
+.download:hover {
+    background-color: #ddd;
+}
+.delete {
+    background-color: #ffefef;
+        color: #ff4444;
+}
+
+.delete:hover {
+    background-color: #ffdddd;
+}
+.empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 100px;
+    color: var(--text-dim);
+}
+.brand-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 2px solid var(--mauve);
+}
+
+.qr-section {
+    margin-top: 40px;
+    padding: 20px;
+    background: var(--card-bg);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    border: 1px dashed var(--mauve);
+}
+
+.qr-img {
+    width: 150px;
+    height: 150px;
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.batch-actions {
+    position: sticky;
+    top: 20px;
+    z-index: 100;
+    margin-bottom: 30px;
+    display: none;
+    /* Shown via JS when items selected */
+}
+
+.btn-batch-delete {
+    background-color: #ff4444;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4);
+    border: none;
+    cursor: pointer;
+}
+
+.btn-batch-delete:hover {
+    transform: scale(1.05);
+}
+footer {
+    width: 100%;
+    padding: 60px 20px;
+        margin-top: 80px;
+    display: flex;
+    flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        border-top: 1px solid #222;
+    }
+    
+    .storage-container {
+        width: 100%;
+        max-width: 400px;
+        background: rgba(255, 255, 255, 0.03);
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #333;
+    }
+    
+    .storage-info {
+        text-align: center;
+        width: 100%;
+    }
+    
+    .storage-text {
+        font-size: 0.85rem;
+        color: var(--text-dim);
+        margin-bottom: 12px;
+    }
+    
+    .storage-bar {
+        width: 100%;
+        height: 8px;
+        background: #1a1a1a;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .storage-progress {
+        height: 100%;
+        background: linear-gradient(90, var(--mauve), #C080FF);
+        border-radius: 4px;
+    }
+    
+    footer p {
+        font-size: 0.8rem;
+        color: var(--text-dim);
+        opacity: 0.5;
+}

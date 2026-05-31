@@ -1,0 +1,11 @@
+{
+    "x_min": 581,
+    "x_max": 3401,
+    "y_min": 934,
+    "y_max": 3132,
+    "screen_width": 480,
+    "screen_height": 320,
+    "swap_xy": true,
+    "invert_x": true,
+    "invert_y": false
+}
