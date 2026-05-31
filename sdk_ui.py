@@ -287,14 +287,19 @@ def main(page: ft.Page):
                 log_output.value += "> Error: Deployment binary missing.\n"
                 page.update()
                 return
+            
+            fw_arg = state['fw_path'] if state['fw_path'] else "STOCK"
+            cmd.extend([state['disk'], state['ssid'], state['pwd'], fw_arg, "YES"])
 
             try:
                 process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
                 sudo_pwd_str = f"{state['sudo_pwd']}\n" if (platform.system() == "Darwin" or platform.system() == "Linux") else ""
-                inputs = f"{sudo_pwd_str}{state['disk']}\n{state['ssid']}\n{state['pwd']}\n{state['fw_path']}\nYES\n"
                 
                 def write_inputs():
-                    try: process.stdin.write(inputs); process.stdin.flush()
+                    try: 
+                        if sudo_pwd_str:
+                            process.stdin.write(sudo_pwd_str)
+                            process.stdin.flush()
                     except: pass
                 
                 threading.Thread(target=write_inputs, daemon=True).start()

@@ -100,23 +100,31 @@ def main():
     list_disks()
     print("="*40)
     
-    print("Target disk examples:")
-    print("  Mac: /dev/disk4")
-    print("  Linux: /dev/sdb or /dev/mmcblk0")
-    print("  Windows: \\\\.\\PhysicalDrive1")
-    disk = input("Enter the target disk: ").strip()
-    if not disk: sys.exit(1)
+    if len(sys.argv) >= 6:
+        disk = sys.argv[1]
+        ssid = sys.argv[2]
+        password = sys.argv[3]
+        custom_fw = sys.argv[4] if sys.argv[4] != "STOCK" else ""
+        confirm = sys.argv[5]
+    else:
+        print("Target disk examples:")
+        print("  Mac: /dev/disk4")
+        print("  Linux: /dev/sdb or /dev/mmcblk0")
+        print("  Windows: \\\\.\\PhysicalDrive1")
+        disk = input("Enter the target disk: ").strip()
+        if not disk: sys.exit(1)
+            
+        ssid = input("Enter Wi-Fi SSID (mandatory): ").strip()
+        password = input("Enter Wi-Fi Password (mandatory): ").strip()
+        custom_fw = input("Enter custom firmware path (leave blank for Stock Firmware): ").strip()
         
-    ssid = input("Enter Wi-Fi SSID (mandatory): ").strip()
-    password = input("Enter Wi-Fi Password (mandatory): ").strip()
-    custom_fw = input("Enter custom firmware path (leave blank for Stock Firmware): ").strip()
-    
-    if not ssid or not password:
-        print("Error: SSID and password are mandatory.")
-        sys.exit(1)
+        if not ssid or not password:
+            print("Error: SSID and password are mandatory.")
+            sys.exit(1)
+            
+        print("\n" + "!"*40)
+        confirm = input(f"WARNING: All data on {disk} will be DESTROYED.\nType 'YES' to proceed: ")
         
-    print("\n" + "!"*40)
-    confirm = input(f"WARNING: All data on {disk} will be DESTROYED.\nType 'YES' to proceed: ")
     if confirm != 'YES':
         print("Aborted.")
         sys.exit(0)
