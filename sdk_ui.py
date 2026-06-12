@@ -1,8 +1,98 @@
 import flet as ft
+import flet.canvas as cv
 import subprocess
 import platform
 import os
 import threading
+import math
+import time
+import random
+
+# Global mouse state
+mouse_state = {"x": None, "y": None}
+
+class GoldenParticle:
+    def __init__(self, index, w, h):
+        self.index = index
+        self.c = 28
+        golden_angle = math.pi * (3 - math.sqrt(5))
+        self.r = self.c * math.sqrt(self.index)
+        self.theta = self.index * golden_angle
+        
+        self.x = w / 2 + self.r * math.cos(self.theta)
+        self.y = h / 2 + self.r * math.sin(self.theta)
+        self.baseX = self.x
+        self.baseY = self.y
+        
+        self.size = max(0.4, 2.5 - (self.r / 800))
+        self.density = random.uniform(1, 21)
+        self.shape = cv.Circle(self.x, self.y, self.size, paint=ft.Paint(color="#2A2A2A"))
+        
+    def update(self, w, h, rotation_offset):
+        current_theta = self.theta + rotation_offset
+        self.baseX = w / 2 + self.r * math.cos(current_theta)
+        self.baseY = h / 2 + self.r * math.sin(current_theta)
+        
+        mx, my = mouse_state["x"], mouse_state["y"]
+        dx = mx - self.x if mx is not None else 0
+        dy = my - self.y if my is not None else 0
+        distance = math.sqrt(dx*dx + dy*dy)
+        maxDist = 200
+        
+        if mx is not None and distance < maxDist and distance > 0:
+            forceDirectionX = dx / distance
+            forceDirectionY = dy / distance
+            force = (maxDist - distance) / maxDist
+            directionX = forceDirectionX * force * self.density * 0.8
+            directionY = forceDirectionY * force * self.density * 0.8
+            self.x -= directionX
+            self.y -= directionY
+        else:
+            if self.x != self.baseX:
+                self.x -= (self.x - self.baseX) / 15
+            if self.y != self.baseY:
+                self.y -= (self.y - self.baseY) / 15
+                
+        self.shape.x = self.x
+        self.shape.y = self.y
+
+def create_bg_canvas(page):
+    w = page.width or 850
+    h = page.height or 700
+    
+    # Force 1200 particles at startup so it fully covers a 1080p monitor if the user maximizes the window later
+    num_particles = 1200
+    
+    particles = [GoldenParticle(i, w, h) for i in range(1, num_particles + 1)]
+    canvas = cv.Canvas([p.shape for p in particles], expand=True)
+    
+    def animate():
+        rotation_offset = 0
+        blink_timer = 0
+        while True:
+            time.sleep(1/30) # ~30 FPS
+            if canvas.page is None: continue
+            try:
+                rotation_offset += 0.0006
+                blink_timer += 1
+                cw = page.width or 850
+                ch = page.height or 700
+                
+                for p in particles:
+                    p.update(cw, ch, rotation_offset)
+                canvas.update()
+                
+                # Blinking cursor sync
+                if "cursor" in state and getattr(state["cursor"], "page", None):
+                    if blink_timer % 15 == 0:
+                        state["cursor"].opacity = 0 if state["cursor"].opacity == 1 else 1
+                        state["cursor"].update()
+            except Exception:
+                pass
+            
+    threading.Thread(target=animate, daemon=True).start()
+    
+    return ft.Container(content=canvas, width=w, height=h)
 
 def run_cmd(cmd):
     try:
@@ -45,6 +135,19 @@ def main(page: ft.Page):
         "fw_path": ""
     }
     
+    def on_hover(e):
+        mouse_state["x"] = e.local_x
+        mouse_state["y"] = e.local_y
+    
+    def on_resize(e):
+        if "bg" in state:
+            state["bg"].width = page.width
+            state["bg"].height = page.height
+            state["bg"].update()
+
+    page.on_hover = on_hover
+    page.on_resize = on_resize
+    
     # --- UI Generators ---
     def toggle_fullscreen(e):
         page.window.full_screen = not page.window.full_screen
@@ -78,19 +181,34 @@ def main(page: ft.Page):
             bgcolor="#111111"
         )
         
+    # Keep background persistent to preserve animation thread
+    bg_canvas_layer = create_bg_canvas(page)
+    state["bg"] = bg_canvas_layer
+    foreground_view = ft.Container(alignment=ft.alignment.center, expand=True)
+    page.add(ft.Stack([bg_canvas_layer, foreground_view], expand=True))
+    
     def switch_view(new_view):
-        page.controls.clear()
-        page.add(ft.Container(content=new_view, alignment=ft.alignment.center, expand=True))
-        page.update()
+        foreground_view.content = new_view
+        foreground_view.update()
 
     # --- VIEW 0: Boot Screen ---
     def build_view0():
-        logo = ft.Image(src="logo.gif", width=120, height=120, fit=ft.ImageFit.CONTAIN)
+        logo_stack = ft.Stack([
+            ft.Image(src="logo.gif", width=320, fit=ft.ImageFit.CONTAIN),
+            ft.Container(
+                content=ft.Text("EuclidCam", size=24, weight=ft.FontWeight.W_700, color="#FFFFFF", font_family="JetBrains Mono"),
+                left=16, bottom=25
+            )
+        ], width=320, height=320)
+        
+        state["cursor"] = ft.Text("_", size=13, color="#D9C8B0", font_family="JetBrains Mono", weight=ft.FontWeight.W_400)
         
         boot_content = ft.Column([
-            logo,
-            ft.Text("EuclidCam", size=48, weight=ft.FontWeight.W_800, color="#FFFFFF", font_family="JetBrains Mono"),
-            ft.Text("built to be built upon_", size=16, color="#D9C8B0", font_family="JetBrains Mono")
+            logo_stack,
+            ft.Row([
+                ft.Text("built to be built upon", size=13, color="#888888", font_family="JetBrains Mono", weight=ft.FontWeight.W_400),
+                state["cursor"]
+            ], alignment=ft.MainAxisAlignment.CENTER, spacing=0)
         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
         
         return ft.Container(content=boot_content, alignment=ft.alignment.center, expand=True)
@@ -255,7 +373,7 @@ def main(page: ft.Page):
             ft.Row([next_btn], alignment=ft.MainAxisAlignment.CENTER)
         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
         
-        return ft.Column([create_header("MAIN"), ft.Container(content=main_layout, padding=ft.padding.only(top=60))])
+        return ft.Column([create_header("MAIN"), ft.Container(content=main_layout, padding=ft.padding.only(top=60))], expand=True)
 
 
     # --- VIEW 3: Progress ---
@@ -376,8 +494,7 @@ NEXT STEPS:
         return ft.Column([create_header("STEP 4/4"), ft.Container(content=card, padding=ft.padding.only(left=40, top=20))])
 
     # Start app on Boot Screen
-    page.add(ft.Container(content=build_view0(), alignment=ft.alignment.center, expand=True))
-    page.update()
+    switch_view(build_view0())
     
     # Transition to View 1 after 3.6 seconds (matches webapp animation delay)
     def boot_transition():

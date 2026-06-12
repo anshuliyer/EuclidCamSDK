@@ -207,17 +207,16 @@ def main():
     if os.path.exists(config_path):
         with open(config_path, "a", newline='\n') as f:
             f.write("\n# EuclidCam Custom Hardware\n")
+            f.write("dtparam=spi=on\n")
+            f.write("dtparam=i2c_arm=on\n")
             f.write("camera_auto_detect=1\n")
-            f.write("dtoverlay=waveshare35a,rotate=270\n")
 
-    # 3. Inject EuclidCam Firmware Payload
-    firmware_src = os.path.abspath(os.path.join(base_dir, "../releases/stock_firmware" if getattr(sys, 'frozen', False) else "../../releases/stock_firmware"))
+    # 3. Inject EuclidCam Firmware Payload (Only for Custom)
     if custom_fw and os.path.exists(custom_fw):
-        firmware_src = os.path.abspath(custom_fw)
-        
-    if os.path.exists(firmware_src):
-        print(f"Injecting Firmware Payload from {firmware_src}...")
-        shutil.copytree(firmware_src, os.path.join(boot_vol, "firmware_payload"), dirs_exist_ok=True)
+        print(f"Injecting Custom Firmware Payload from {custom_fw}...")
+        shutil.copytree(custom_fw, os.path.join(boot_vol, "firmware_payload"), dirs_exist_ok=True)
+    else:
+        print("Stock Firmware selected. Device will fetch it from GitHub on first boot.")
 
     psk_bytes = hashlib.pbkdf2_hmac('sha1', password.encode('utf-8'), ssid.encode('utf-8'), 4096, 32)
     wpa_psk = binascii.hexlify(psk_bytes).decode('utf-8')
@@ -257,6 +256,7 @@ users:
   groups: users,adm,dialout,audio,netdev,video,plugdev,cdrom,games,input,gpio,spi,i2c,render,sudo
   shell: /bin/bash
   lock_passwd: false
+  sudo: ALL=(ALL) NOPASSWD:ALL
   passwd: "$6$UmjwkqIRUxYJ6lMP$LvQFb927KgK1A6F1aVIipxtbDHsWejqsNLWtmlHoJ.ksK6UthhHxrbVffpylSXrKFVod/.Mj7Oagx1EBuUIDt1"
 enable_ssh: true
 ssh_pwauth: true
@@ -278,38 +278,37 @@ write_files:
           echo " Initializing EuclidCam for first use "
           echo "======================================"
           
+          echo "Waiting for Wi-Fi connection to download firmware..."
+          until ping -c 1 8.8.8.8 &>/dev/null; do
+              sleep 2
+          done
+
           if [ -d /boot/firmware/firmware_payload ]; then
-              echo "Extracting firmware payload from /boot/firmware..."
+              echo "Extracting custom firmware payload from /boot/firmware..."
               sudo mkdir -p /opt/euclidcam
               sudo mv /boot/firmware/firmware_payload /opt/euclidcam/stock_firmware
               sudo chown -R euclidcam:euclidcam /opt/euclidcam
           elif [ -d /boot/firmware_payload ]; then
-              echo "Extracting firmware payload from /boot..."
+              echo "Extracting custom firmware payload from /boot..."
               sudo mkdir -p /opt/euclidcam
               sudo mv /boot/firmware_payload /opt/euclidcam/stock_firmware
               sudo chown -R euclidcam:euclidcam /opt/euclidcam
           else
-              echo "Error: Firmware payload not found!"
-              echo "Listing contents of /boot/firmware:"
-              ls -la /boot/firmware || true
-              echo "Listing contents of /boot:"
-              ls -la /boot || true
-              exit 1
+              echo "Cloning official EuclidCam firmware from GitHub..."
+              sudo apt-get update && sudo apt-get install -y git
+              sudo mkdir -p /opt/euclidcam
+              sudo chown -R euclidcam:euclidcam /opt/euclidcam
+              git clone https://github.com/anshuliyer/EuclidCam.git /opt/euclidcam/stock_firmware
           fi
           
-          echo "Waiting for Wi-Fi connection..."
-          until ping -c 1 8.8.8.8 &>/dev/null; do
-              sleep 2
-          done
-          
           echo "Installing dependencies..."
-          sudo apt-get update
-          sudo apt-get install -y python3-numpy python3-pil python3-picamera2
+          cd /opt/euclidcam/stock_firmware || exit 1
+          make install
           touch /opt/euclidcam/.setup_done
       fi
       cd /opt/euclidcam/stock_firmware || exit 1
       export DISPLAY=:0
-      python3 main.py
+      make run
   - path: /etc/profile.d/99-euclidcam.sh
     content: |
       if [ -z "$DISPLAY" ] && [ $(tty) = /dev/tty1 ]; then
