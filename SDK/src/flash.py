@@ -264,6 +264,12 @@ rpi:
   interfaces:
     serial: true
 
+runcmd:
+  - mkdir -p /etc/systemd/system/getty@tty1.service.d
+  - echo "[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin euclidcam --noclear %I \$TERM" > /etc/systemd/system/getty@tty1.service.d/autologin.conf
+  - systemctl daemon-reload
+  - systemctl restart getty@tty1.service
+
 write_files:
   - path: /etc/udev/rules.d/99-calibration.rules
     content: |
@@ -358,12 +364,9 @@ Done! You can now insert the SD card into your device.
   If the device is on the same Wi-Fi network, you can access it via:
   $ ssh euclidcam@euclidcam.local
   
-  To enable autologin and finish the configuration, run:
-  $ sudo raspi-config
-  (Go to System Options -> Boot / Auto Login -> Console Autologin)
-  
-  Afterward, you can manually trigger the firmware installation by running:
-  $ /usr/local/bin/start.sh
+  The device has been configured for true zero-touch deployment. It will
+  automatically log in, clone the firmware, and trigger the boot splash
+  installation sequence entirely on its own!
 ========================================""")
 
 if __name__ == "__main__":
