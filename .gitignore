@@ -1,2 +1,5 @@
 exec/
 bin/os.img.xz
+venv/
+__pycache__/
+.DS_Store
