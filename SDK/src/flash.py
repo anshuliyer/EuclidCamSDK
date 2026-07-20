@@ -289,6 +289,9 @@ write_files:
               sleep 2
           done
 
+          # Bypass flaky regional mirrors by forcing the UK master archive
+          sudo sed -i 's/raspbian.raspberrypi.com/archive.raspbian.org/g' /etc/apt/sources.list
+          sudo sed -i 's/raspbian.raspberrypi.org/archive.raspbian.org/g' /etc/apt/sources.list
           if [ -d /boot/firmware/firmware_payload ]; then
               echo "Extracting custom firmware payload from /boot/firmware..."
               sudo mkdir -p /opt/euclidcam
