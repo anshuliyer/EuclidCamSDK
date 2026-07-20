@@ -461,7 +461,11 @@ NEXT STEPS:
    (Go to System Options -> Boot / Auto Login -> Console Autologin)
 
 3. Trigger the firmware installation:
-   $ /usr/local/bin/start.sh"""
+   $ /usr/local/bin/start.sh
+
+4. Run startup.sh whenever the system boots:
+   $ crontab -e
+   (Add the line: @reboot /path/to/startup.sh)"""
 
         def launch_terminal(e):
             if platform.system() == "Darwin":
