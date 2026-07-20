@@ -54,8 +54,8 @@ def wait_for_bootfs(disk):
         if os.path.exists("/Volumes/boot"): return "/Volumes/boot"
         
         print("\n[!] macOS needs to refresh the partition table.")
-        input("    Please REMOVE the SD card reader, RE-INSERT it, and press ENTER...")
-        for _ in range(15):
+        print("    Please REMOVE the SD card reader, RE-INSERT it, and wait...")
+        for _ in range(30):
             if os.path.exists("/Volumes/bootfs"): return "/Volumes/bootfs"
             if os.path.exists("/Volumes/boot"): return "/Volumes/boot"
             time.sleep(1)
@@ -218,9 +218,6 @@ def main():
     else:
         print("Stock Firmware selected. Device will fetch it from GitHub on first boot.")
 
-    psk_bytes = hashlib.pbkdf2_hmac('sha1', password.encode('utf-8'), ssid.encode('utf-8'), 4096, 32)
-    wpa_psk = binascii.hexlify(psk_bytes).decode('utf-8')
-    
     network_config = f"""network:
   version: 2
   ethernets:
@@ -234,7 +231,7 @@ def main():
       regulatory-domain: "US"
       access-points:
         "{ssid}":
-          password: "{wpa_psk}"
+          password: "{password}"
       optional: true
 """
     
@@ -265,12 +262,15 @@ rpi:
     serial: true
 
 runcmd:
-  - mkdir -p /etc/systemd/system/getty@tty1.service.d
-  - echo "[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin euclidcam --noclear %I \$TERM" > /etc/systemd/system/getty@tty1.service.d/autologin.conf
   - systemctl daemon-reload
   - systemctl restart getty@tty1.service
 
 write_files:
+  - path: /etc/systemd/system/getty@tty1.service.d/autologin.conf
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=-/sbin/agetty --autologin euclidcam --noclear %I $TERM
   - path: /etc/udev/rules.d/99-calibration.rules
     content: |
       ACTION=="add|change", KERNEL=="event[0-9]*", ENV{{ID_INPUT_TOUCHSCREEN}}=="1", ENV{{LIBINPUT_CALIBRATION_MATRIX}}="0 -1 1 1 0 0"
@@ -327,6 +327,9 @@ write_files:
         
     with open(os.path.join(boot_vol, "user-data"), "w") as f:
         f.write(user_data)
+        
+    with open(os.path.join(boot_vol, "meta-data"), "w") as f:
+        f.write("instance-id: euclidcam-01\nlocal-hostname: euclidcam\n")
         
     cmdline_path = os.path.join(boot_vol, "cmdline.txt")
     if os.path.exists(cmdline_path):
