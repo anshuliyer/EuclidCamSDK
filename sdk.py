@@ -107,8 +107,39 @@ def get_disks():
         out = run_cmd("wmic diskdrive get deviceid")
         disks = [line.strip() for line in out.splitlines() if "PhysicalDrive" in line]
     elif os_type == "Darwin":
-        out = run_cmd("diskutil list | grep -E '^/dev/disk'")
-        disks = [line.split()[0] for line in out.splitlines()]
+        out = run_cmd("diskutil list")
+        lines = out.splitlines()
+        external_disks = []
+        other_disks = []
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            if line.startswith("/dev/disk"):
+                parts = line.split()
+                disk_id = parts[0]
+                is_external = "(external, physical)" in line
+                is_internal = "(internal, physical)" in line
+                is_image = "(disk image)" in line or "(synthesized)" in line
+                
+                size_str = ""
+                # Look ahead at next lines to get partition scheme size
+                if i + 2 < len(lines) and "*" in lines[i + 2]:
+                    size_parts = lines[i + 2].split()
+                    for p in size_parts:
+                        if p.startswith("*"):
+                            idx_p = size_parts.index(p)
+                            if idx_p + 1 < len(size_parts):
+                                size_str = f" - {p[1:]} {size_parts[idx_p + 1]}"
+                            break
+                
+                if is_external:
+                    external_disks.append(f"{disk_id} (EXTERNAL SD CARD{size_str})")
+                elif is_internal:
+                    other_disks.append(f"{disk_id} (INTERNAL SYSTEM SSD{size_str})")
+                elif not is_image:
+                    other_disks.append(f"{disk_id}{size_str}")
+            i += 1
+        disks = external_disks + other_disks
     elif os_type == "Linux":
         out = run_cmd("lsblk -d -o NAME | grep -v NAME")
         disks = [f"/dev/{line.strip()}" for line in out.splitlines() if line.strip()]
@@ -407,7 +438,8 @@ def main(page: ft.Page):
                 return
             
             fw_arg = state['fw_path'] if state['fw_path'] else "STOCK"
-            cmd.extend([state['disk'], state['ssid'], state['pwd'], fw_arg, "YES"])
+            target_disk = state['disk'].split()[0] if state['disk'] else ""
+            cmd.extend([target_disk, state['ssid'], state['pwd'], fw_arg, "YES"])
 
             try:
                 process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
