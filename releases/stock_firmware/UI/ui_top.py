@@ -358,7 +358,7 @@ class TopPanel:
         draw.text((x + 20, y + overlay_h - 20), "Press shutter to exit", fill=self.BEIGE)
 
     def _draw_toast(self, draw, text: str):
-        """Draws a sleek notification toast banner at top center of screen."""
+        """Draws a sleek notification toast banner at top center of screen with light glass styling."""
         w, h = self.screen_res
         try:
             from PIL import ImageFont
@@ -367,17 +367,18 @@ class TopPanel:
             font = None
             
         tw = draw.textlength(text, font=font) if hasattr(draw, "textlength") else len(text) * 8
-        card_w, card_h = int(tw + 40), 36
-        cx, cy = w // 2, 30
+        card_w, card_h = int(tw + 36), 32
+        cx, cy = w // 2, 28
         bx, by = cx - card_w // 2, cy - card_h // 2
         
         draw_func = getattr(draw, "rounded_rectangle", draw.rectangle)
-        draw_func([bx, by, bx + card_w, by + card_h], radius=10, fill=(35, 30, 25, 230), outline=self.BEIGE, width=2)
+        # Very light glass background (30% opacity) with subtle white glass outline
+        draw_func([bx, by, bx + card_w, by + card_h], radius=8, fill=(0, 0, 0, 45), outline=(255, 255, 255, 140), width=1)
         
-        draw.text((bx + 20, by + 9), text, fill=(255, 255, 255), font=font)
+        draw.text((bx + 18, by + 7), text, fill=(255, 255, 255, 255), font=font)
 
     def _draw_pro_hud(self, draw):
-        """Draws a pro-camera HUD badge at top-left of viewfinder."""
+        """Draws a pro-camera HUD badge at top-left of viewfinder with light glass styling."""
         try:
             from PIL import ImageFont
             font_hud = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 10)
@@ -393,15 +394,17 @@ class TopPanel:
         bx, by = 12, 10
         
         draw_func = getattr(draw, "rounded_rectangle", draw.rectangle)
-        draw_func([bx, by, bx + badge_w, by + badge_h], radius=5, fill=(25, 20, 15, 200), outline=self.BEIGE, width=1)
-        draw.text((bx + 8, by + 3), hud_text, fill=(255, 235, 205), font=font_hud)
+        # Very light glass background (30% opacity) with subtle white glass outline
+        draw_func([bx, by, bx + badge_w, by + badge_h], radius=5, fill=(0, 0, 0, 40), outline=(255, 255, 255, 130), width=1)
+        draw.text((bx + 8, by + 3), hud_text, fill=(255, 255, 255, 255), font=font_hud)
 
     def render(self, frame):
         """
-        Applies the UI overlay to the provided frame.
+        Applies the UI overlay to the provided frame with RGBA alpha compositing for glass effects.
         """
-        img = Image.fromarray(frame)
-        draw = ImageDraw.Draw(img)
+        img = Image.fromarray(frame).convert("RGBA")
+        overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
         
         show_gallery = self.config.get("show_gallery", False)
         
@@ -436,4 +439,5 @@ class TopPanel:
         if toast_text and (time.time() - toast_time < 4.0):
             self._draw_toast(draw, toast_text)
 
+        img = Image.alpha_composite(img, overlay).convert("RGB")
         return np.array(img)
