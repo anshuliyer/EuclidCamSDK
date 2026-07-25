@@ -136,9 +136,7 @@ class TopPanel:
         if not show_submenu:
             flash_pwr = "Flash: ON" if self.config.get("flash", True) else "Flash: OFF"
             exp_val = f"Exp: {self.config.get('exposure_label', 'Auto')}"
-            flick_val = f"Flicker: {self.config.get('flicker_label', 'Auto')}"
-            ratio_val = f"Ratio: {self.config.get('ratio_label', '3:2')}"
-            items = ["Gallery", "Modes", exp_val, flick_val, ratio_val, "Connect", flash_pwr, "Grid", "Exit"]
+            items = ["Gallery", "Modes", exp_val, "Connect", flash_pwr, "Grid", "Exit"]
             selected_idx = self.config.get("menu_index", 0)
             title = "SYSTEM MENU"
         elif current_submenu == "Modes":
@@ -149,14 +147,10 @@ class TopPanel:
             items = ["Auto", "1/100s", "1/50s", "1/30s", "1/15s", "1/10s", "Back"]
             selected_idx = self.config.get("submenu_index", 0)
             title = "EXPOSURE TIME"
-        elif current_submenu == "Flicker":
-            items = ["Auto", "50Hz", "60Hz", "OFF", "Back"]
+        elif current_submenu == "Grid":
+            items = ["OFF", "3x3", "Euclid", "Back"]
             selected_idx = self.config.get("submenu_index", 0)
-            title = "ANTI-FLICKER"
-        elif current_submenu == "Ratio":
-            items = ["3:2", "16:9", "1:1", "4:3", "Back"]
-            selected_idx = self.config.get("submenu_index", 0)
-            title = "ASPECT RATIO"
+            title = "COMPOSITION"
         elif current_submenu == "Grid":
             items = ["OFF", "3x3", "Euclid", "Back"]
             selected_idx = self.config.get("submenu_index", 0)
@@ -392,9 +386,8 @@ class TopPanel:
 
         mode_name = str(self.config.get("active_mode_name", "STANDARD")).upper()
         exp = str(self.config.get("exposure_label", "AUTO")).upper()
-        ratio = str(self.config.get("ratio_label", "3:2"))
         
-        hud_text = f"● {mode_name} | {exp} | {ratio}"
+        hud_text = f"● {mode_name} | {exp}"
         tw = draw.textlength(hud_text, font=font_hud) if hasattr(draw, "textlength") else len(hud_text) * 6
         badge_w, badge_h = int(tw + 16), 18
         bx, by = 12, 10

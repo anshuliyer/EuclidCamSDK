@@ -94,7 +94,7 @@ def start_preview() -> None:
     cfg = picam2.create_video_configuration(
         main={"size": SCREEN_RES, "format": "RGB888"}
     )
-    cfg["controls"] = {"Contrast": 1.03, "Brightness": 0.02, "Sharpness": 1.1}
+    cfg["controls"] = {"Contrast": 1.03, "Brightness": 0.02, "Sharpness": 1.1, "AeFlickerMode": 1}
     picam2.configure(cfg)
     picam2.start()
 
@@ -228,15 +228,15 @@ class CameraMode:
         """
         picam2.stop()
         cfg = picam2.create_still_configuration()
+
+        # Always enable anti-flicker (AeFlickerMode: 1 = Auto anti-banding) by default
+        controls.setdefault("AeFlickerMode", 1)
+
         if config:
             exp_time = config.get("exposure_time", 0)
             if exp_time > 0:
                 controls["ExposureTime"] = exp_time
                 controls["AeEnable"] = False
-
-            flicker_mode = config.get("flicker_mode", 0)
-            if flicker_mode > 0:
-                controls["AeFlickerMode"] = flicker_mode
 
         cfg["controls"] = controls
         picam2.configure(cfg)
@@ -538,11 +538,9 @@ class InputHandler:
     Keeps all navigation / selection logic out of the main loop.
     """
 
-    _MAIN_MENU_ITEMS = ["Gallery", "Modes", "Exposure", "Flicker", "Ratio", "Connect", "Flash", "Grid", "Exit"]
+    _MAIN_MENU_ITEMS = ["Gallery", "Modes", "Exposure", "Connect", "Flash", "Grid", "Exit"]
     _GRID_OPTIONS    = ["OFF", "3x3", "Euclid", "Back"]
     _EXPOSURE_OPTIONS = ["Auto", "1/100s", "1/50s", "1/30s", "1/15s", "1/10s", "Back"]
-    _FLICKER_OPTIONS  = ["Auto", "50Hz", "60Hz", "OFF", "Back"]
-    _RATIO_OPTIONS    = ["3:2", "16:9", "1:1", "4:3", "Back"]
 
     _EXPOSURE_MAP = {
         "Auto": 0,
@@ -551,18 +549,6 @@ class InputHandler:
         "1/30s": 33333,
         "1/15s": 66666,
         "1/10s": 100000,
-    }
-    _FLICKER_MAP = {
-        "Auto": 0,
-        "50Hz": 1,
-        "60Hz": 2,
-        "OFF": 0,
-    }
-    _RATIO_MAP = {
-        "3:2": 1.5,
-        "16:9": 1.7777777777777777,
-        "1:1": 1.0,
-        "4:3": 1.3333333333333333,
     }
 
     def __init__(
@@ -716,16 +702,6 @@ class InputHandler:
             config["current_submenu"] = "Exposure"
             config["submenu_index"]   = 0
 
-        elif selected.startswith("Flicker"):
-            config["show_submenu"]    = True
-            config["current_submenu"] = "Flicker"
-            config["submenu_index"]   = 0
-
-        elif selected.startswith("Ratio"):
-            config["show_submenu"]    = True
-            config["current_submenu"] = "Ratio"
-            config["submenu_index"]   = 0
-
         elif selected == "Grid":
             config["show_submenu"]    = True
             config["current_submenu"] = "Grid"
@@ -795,28 +771,6 @@ class InputHandler:
             config["show_submenu"] = False
             config["show_menu"] = False
 
-        elif submenu == "Flicker":
-            if idx == len(self._FLICKER_OPTIONS) - 1: # Back
-                config["show_submenu"] = False
-                return
-            opt = self._FLICKER_OPTIONS[idx]
-            config["flicker_label"] = opt
-            config["flicker_mode"] = self._FLICKER_MAP.get(opt, 0)
-            print(f"[SYSTEM] Anti-Flicker → {opt}")
-            config["show_submenu"] = False
-            config["show_menu"] = False
-
-        elif submenu == "Ratio":
-            if idx == len(self._RATIO_OPTIONS) - 1: # Back
-                config["show_submenu"] = False
-                return
-            opt = self._RATIO_OPTIONS[idx]
-            config["ratio_label"] = opt
-            config["target_ratio"] = self._RATIO_MAP.get(opt, 1.5)
-            print(f"[SYSTEM] Aspect Ratio → {opt}")
-            config["show_submenu"] = False
-            config["show_menu"] = False
-
         config["show_submenu"] = False
         config["show_menu"]    = False
 
@@ -828,10 +782,6 @@ class InputHandler:
             return len(self._modes) + 1 # +1 for Back
         elif sub == "Exposure":
             return len(self._EXPOSURE_OPTIONS)
-        elif sub == "Flicker":
-            return len(self._FLICKER_OPTIONS)
-        elif sub == "Ratio":
-            return len(self._RATIO_OPTIONS)
         return len(self._GRID_OPTIONS)
 
 
