@@ -98,7 +98,7 @@ def start_preview() -> None:
         "Contrast": 1.03,
         "Brightness": 0.02,
         "Sharpness": 1.1,
-        "AeFlickerMode": 2,       # 2 = Auto anti-flicker in libcamera
+        "AeFlickerMode": 1,       # 1 = Manual flicker mode in Raspberry Pi libcamera IPA
         "AeFlickerPeriod": 10000, # 10000 us = 10ms (100Hz flicker elimination for 50Hz lighting)
         "AeMeteringMode": 0,      # 0 = Centre-weighted subject exposure metering
         "AfMode": 2,              # 2 = Continuous PDAF Autofocus on IMX708
@@ -239,7 +239,7 @@ class CameraMode:
         cfg = picam2.create_still_configuration()
 
         # Pro controls: Auto anti-flicker (100Hz pulse sync), centre-weighted subject metering, and continuous PDAF autofocus
-        controls.setdefault("AeFlickerMode", 2)
+        controls.setdefault("AeFlickerMode", 1)
         controls.setdefault("AeFlickerPeriod", 10000)
         controls.setdefault("AeMeteringMode", 0)
         controls.setdefault("AfMode", 2)
@@ -982,6 +982,9 @@ class CameraEngine:
             raw = picam2.capture_array()
             if raw is None:
                 return
+            
+            # picam2.capture_array outputs BGR byte array. Convert BGR -> RGB for display & filters.
+            raw = raw[:, :, ::-1]
             
             mode  = self.modes[self.config["mode_idx"]]
             frame = mode.process_frame(raw)
