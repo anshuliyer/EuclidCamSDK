@@ -1038,6 +1038,7 @@ class CameraEngine:
             self.config["current_preview_luma"] = float(np.mean(0.299 * arr_luma[:, :, 0] + 0.587 * arr_luma[:, :, 1] + 0.114 * arr_luma[:, :, 2]))
 
             mode  = self.modes[self.config["mode_idx"]]
+            self.config["active_mode_name"] = mode.name
             frame = mode.process_frame(raw)
 
             # Compositional grid overlay
