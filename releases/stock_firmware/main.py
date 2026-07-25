@@ -335,14 +335,25 @@ class FilterMode(CameraMode):
 
     def apply_filter(self, pil_img: Image.Image, config: dict | None = None) -> Image.Image:
         img = self._crop_and_zoom(pil_img, config=config)
-        img = self.filter_func(img) if self.filter_func else img
+        if self.filter_func:
+            import inspect
+            sig = inspect.signature(self.filter_func)
+            if "is_preview" in sig.parameters:
+                img = self.filter_func(img, is_preview=False)
+            else:
+                img = self.filter_func(img)
         return self._apply_pro_optical_polish(img)
 
     def process_frame(self, frame: np.ndarray, config: dict | None = None) -> np.ndarray:
         img = self._crop_and_zoom(Image.fromarray(frame), config=config)
-        img = img.resize(SCREEN_RES, Image.LANCZOS)
+        img = img.resize(SCREEN_RES, Image.NEAREST)
         if self.filter_func:
-            img = self.filter_func(img)
+            import inspect
+            sig = inspect.signature(self.filter_func)
+            if "is_preview" in sig.parameters:
+                img = self.filter_func(img, is_preview=True)
+            else:
+                img = self.filter_func(img)
         return np.array(img)
 
 

@@ -10,7 +10,7 @@ Simulates a classic 1990s flash magazine & film stock aesthetic based on:
 
 from PIL import Image, ImageEnhance, ImageFilter
 
-def apply_nineties_filter(pil_img: Image.Image) -> Image.Image:
+def apply_nineties_filter(pil_img: Image.Image, is_preview: bool = False) -> Image.Image:
     """Applies 1990s vintage film filter to a PIL Image."""
     img = pil_img.copy()
 
@@ -33,7 +33,8 @@ def apply_nineties_filter(pil_img: Image.Image) -> Image.Image:
     b = b.point(lambda i: min(255, int(i * 0.94 + 20)))
     img = Image.merge('RGB', (r, g, b))
 
-    # 6. Apply light unsharp mask for subtle analog clarity
-    img = img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=110, threshold=3))
+    # 6. Apply unsharp mask for still photo captures (skip during live preview stream for max FPS)
+    if not is_preview:
+        img = img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=110, threshold=3))
 
     return img
