@@ -90,11 +90,20 @@ def display_to_map(data_array: np.ndarray, fb_map, config: dict = None) -> None:
 
 
 def start_preview() -> None:
-    """Configure picam2 for the live preview stream."""
+    """Configure picam2 for the live preview stream with PDAF autofocus and anti-flicker."""
     cfg = picam2.create_video_configuration(
         main={"size": SCREEN_RES, "format": "RGB888"}
     )
-    cfg["controls"] = {"Contrast": 1.03, "Brightness": 0.02, "Sharpness": 1.1, "AeFlickerMode": 1}
+    cfg["controls"] = {
+        "Contrast": 1.03,
+        "Brightness": 0.02,
+        "Sharpness": 1.1,
+        "AeFlickerMode": 2,       # 2 = Auto anti-flicker in libcamera
+        "AeFlickerPeriod": 10000, # 10000 us = 10ms (100Hz flicker elimination for 50Hz lighting)
+        "AeMeteringMode": 0,      # 0 = Centre-weighted subject exposure metering
+        "AfMode": 2,              # 2 = Continuous PDAF Autofocus on IMX708
+        "AfRange": 0,             # 0 = Normal focus range
+    }
     picam2.configure(cfg)
     picam2.start()
 
@@ -229,8 +238,12 @@ class CameraMode:
         picam2.stop()
         cfg = picam2.create_still_configuration()
 
-        # Always enable anti-flicker (AeFlickerMode: 1 = Auto anti-banding) by default
-        controls.setdefault("AeFlickerMode", 1)
+        # Pro controls: Auto anti-flicker (100Hz pulse sync), centre-weighted subject metering, and continuous PDAF autofocus
+        controls.setdefault("AeFlickerMode", 2)
+        controls.setdefault("AeFlickerPeriod", 10000)
+        controls.setdefault("AeMeteringMode", 0)
+        controls.setdefault("AfMode", 2)
+        controls.setdefault("AfRange", 0)
 
         if config:
             exp_time = config.get("exposure_time", 0)
@@ -241,7 +254,8 @@ class CameraMode:
         cfg["controls"] = controls
         picam2.configure(cfg)
         picam2.start()
-        time.sleep(0.4)
+        # Settle sensor & allow PDAF autofocus motor to achieve subject lock
+        time.sleep(0.5)
         picam2.capture_file("temp.jpg")
         return Image.open("temp.jpg").convert("RGB")
 
@@ -260,8 +274,8 @@ class CameraMode:
 
         self._draw_capture_overlay(fb_map, config, "PROCESSING…", progress=0.2)
         raw = self._do_capture_raw({
-            "Contrast": 1.05, "Sharpness": 2.0,
-            "AeExposureMode": 1, "AnalogueGain": 4.0,
+            "Contrast": 1.05, "Sharpness": 1.8,
+            "AeMeteringMode": 0, "AfMode": 2,
         }, config=config)
 
         self._draw_capture_overlay(fb_map, config, "APPLYING VISION…", progress=0.5)
@@ -353,9 +367,9 @@ class LowLightMode(CameraMode):
 
         self._draw_capture_overlay(fb_map, config, "STABILIZING SENSOR…", progress=0.2)
         raw = self._do_capture_raw({
-            "Contrast": 1.1, "Sharpness": 3.0,
+            "Contrast": 1.08, "Sharpness": 2.0,
             "NoiseReductionMode": 2,
-            "AeExposureMode": 1, "AnalogueGain": 8.0,
+            "AeMeteringMode": 0, "AfMode": 2,
         }, config=config)
         # Low-light needs a slightly longer sensor settle
         time.sleep(0.1)
