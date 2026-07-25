@@ -121,6 +121,17 @@
                         <button class="btn-toggle active" id="btn-flash-toggle" onclick="toggleRemoteFlash(this)">FLASH: AUTO</button>
                     </div>
                     <div class="control-box">
+                        <span class="control-label">EXPOSURE SHUTTER</span>
+                        <div class="exposure-buttons-row">
+                            <button class="exp-btn active" id="exp-btn-Auto" onclick="setRemoteExposure('Auto', this)">AUTO</button>
+                            <button class="exp-btn" id="exp-btn-1-100s" onclick="setRemoteExposure('1/100s', this)">1/100s</button>
+                            <button class="exp-btn" id="exp-btn-1-50s" onclick="setRemoteExposure('1/50s', this)">1/50s</button>
+                            <button class="exp-btn" id="exp-btn-1-30s" onclick="setRemoteExposure('1/30s', this)">1/30s</button>
+                            <button class="exp-btn" id="exp-btn-1-15s" onclick="setRemoteExposure('1/15s', this)">1/15s</button>
+                            <button class="exp-btn" id="exp-btn-1-10s" onclick="setRemoteExposure('1/10s', this)">1/10s</button>
+                        </div>
+                    </div>
+                    <div class="control-box">
                         <span class="control-label">GRID OVERLAY</span>
                         <div class="grid-buttons-row">
                             <button class="grid-btn active" id="grid-btn-OFF" onclick="setRemoteGrid('OFF', this)">OFF</button>
@@ -362,6 +373,21 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ flash: currentFlashMode })
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function setRemoteExposure(expVal, btn) {
+            document.querySelectorAll('.exp-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+
+            try {
+                await fetch('/api/remote/exposure?exposure=' + encodeURIComponent(expVal) + '&t=' + Date.now(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ exposure: expVal })
                 });
             } catch (err) {
                 console.error(err);

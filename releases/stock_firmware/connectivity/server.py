@@ -191,6 +191,18 @@ def remote_flash():
     except Exception as e:
         return {"success": False, "message": str(e)}, 500
 
+@app.route('/api/remote/exposure', methods=['GET', 'POST'])
+def remote_exposure():
+    try:
+        import json, time
+        data = request.get_json(silent=True) or request.form or request.args
+        exp_val = str(data.get("exposure", "Auto"))
+        with open("/tmp/euclidcam_remote_cmd.json", "w") as f:
+            json.dump({"cmd": "set_exposure", "exposure": exp_val, "time": time.time()}, f)
+        return {"success": True, "exposure": exp_val}, 200
+    except Exception as e:
+        return {"success": False, "message": str(e)}, 500
+
 @app.route('/api/remote/flash_blip', methods=['GET', 'POST'])
 def remote_flash_blip():
     try:

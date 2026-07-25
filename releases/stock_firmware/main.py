@@ -1006,6 +1006,20 @@ class CameraEngine:
                     self.config["flash_mode"] = f_mode
                     self.config["flash"] = (f_mode != "OFF")
                     print(f"[SYSTEM] Remote flash set to {f_mode}")
+                elif cmd == "set_exposure":
+                    exp_label = str(cmd_data.get("exposure", "Auto"))
+                    exp_map = {
+                        "Auto": 0,
+                        "1/100s": 10000,
+                        "1/50s": 20000,
+                        "1/30s": 33333,
+                        "1/15s": 66666,
+                        "1/10s": 100000,
+                    }
+                    if exp_label in exp_map:
+                        self.config["exposure_label"] = exp_label
+                        self.config["exposure_time"] = exp_map[exp_label]
+                        print(f"[SYSTEM] Remote exposure set to {exp_label}")
                 elif cmd == "set_grid":
                     g_val = str(cmd_data.get("grid", "OFF")).upper()
                     if g_val in ("RULE_OF_THIRDS", "THIRDS", "3X3"):
