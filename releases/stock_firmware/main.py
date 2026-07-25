@@ -204,13 +204,18 @@ class CameraMode:
 
     # ── Hardware capture ──────────────────────────────────────────────────────
 
-    def _do_capture_raw(self, controls: dict) -> Image.Image:
+    def _do_capture_raw(self, controls: dict, config: dict | None = None) -> Image.Image:
         """
         Switch picam2 into still mode, apply *controls*, shoot, and return a
         full-resolution PIL image.  Always restores preview afterwards.
         """
         picam2.stop()
         cfg = picam2.create_still_configuration()
+        if config:
+            exp_time = config.get("exposure_time", 0)
+            if exp_time > 0:
+                controls["ExposureTime"] = exp_time
+                controls["AeEnable"] = False
         cfg["controls"] = controls
         picam2.configure(cfg)
         picam2.start()
@@ -235,7 +240,7 @@ class CameraMode:
         raw = self._do_capture_raw({
             "Contrast": 1.05, "Sharpness": 2.0,
             "AeExposureMode": 1, "AnalogueGain": 4.0,
-        })
+        }, config=config)
 
         self._draw_capture_overlay(fb_map, config, "APPLYING VISION…", progress=0.5)
         processed = self.apply_filter(raw)
@@ -327,7 +332,7 @@ class LowLightMode(CameraMode):
             "Contrast": 1.1, "Sharpness": 3.0,
             "NoiseReductionMode": 2,
             "AeExposureMode": 1, "AnalogueGain": 8.0,
-        })
+        }, config=config)
         # Low-light needs a slightly longer sensor settle
         time.sleep(0.1)
 
@@ -507,8 +512,17 @@ class InputHandler:
     Keeps all navigation / selection logic out of the main loop.
     """
 
-    _MAIN_MENU_ITEMS = ["Gallery", "Modes", "Connect", "Flash", "Grid", "Exit"]
+    _MAIN_MENU_ITEMS = ["Gallery", "Modes", "Exposure", "Connect", "Flash", "Grid", "Exit"]
     _GRID_OPTIONS    = ["OFF", "3x3", "Euclid", "Back"]
+    _EXPOSURE_OPTIONS = ["Auto", "1/100s", "1/50s", "1/30s", "1/15s", "1/10s", "Back"]
+    _EXPOSURE_MAP = {
+        "Auto": 0,
+        "1/100s": 10000,
+        "1/50s": 20000,
+        "1/30s": 33333,
+        "1/15s": 66666,
+        "1/10s": 100000,
+    }
 
     def __init__(
         self,
@@ -656,6 +670,11 @@ class InputHandler:
             config["current_submenu"] = "Modes"
             config["submenu_index"]   = config.get("mode_idx", 0)
 
+        elif selected.startswith("Exposure"):
+            config["show_submenu"]    = True
+            config["current_submenu"] = "Exposure"
+            config["submenu_index"]   = 0
+
         elif selected == "Grid":
             config["show_submenu"]    = True
             config["current_submenu"] = "Grid"
@@ -714,14 +733,28 @@ class InputHandler:
             config["show_submenu"] = False
             config["show_menu"] = False
 
+        elif submenu == "Exposure":
+            if idx == len(self._EXPOSURE_OPTIONS) - 1: # Back
+                config["show_submenu"] = False
+                return
+            opt = self._EXPOSURE_OPTIONS[idx]
+            config["exposure_label"] = opt
+            config["exposure_time"] = self._EXPOSURE_MAP.get(opt, 0)
+            print(f"[SYSTEM] Exposure → {opt} ({config['exposure_time']} µs)")
+            config["show_submenu"] = False
+            config["show_menu"] = False
+
         config["show_submenu"] = False
         config["show_menu"]    = False
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _submenu_length(self, config: dict) -> int:
-        if config.get("current_submenu") == "Modes":
+        sub = config.get("current_submenu")
+        if sub == "Modes":
             return len(self._modes) + 1 # +1 for Back
+        elif sub == "Exposure":
+            return len(self._EXPOSURE_OPTIONS)
         return len(self._GRID_OPTIONS)
 
 
@@ -1002,6 +1035,8 @@ def _build_default_config(argv: list[str]) -> dict:
         "is_connected":         False,
         "server_proc":          None,
         "flash":                True,
+        "exposure_label":       "Auto",
+        "exposure_time":        0,
         "show_connection_view": False,
         "is_wifi_active":       False,
         "is_benchmark_mode":    "--benchmark" in argv,

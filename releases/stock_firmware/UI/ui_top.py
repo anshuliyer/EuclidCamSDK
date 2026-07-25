@@ -6,7 +6,7 @@ class TopPanel:
     """
     Handles drawing and rendering of the top-panel UI indicators.
     """
-    MAUVE = theme.MAUVE_PRIMARY
+    BEIGE = theme.BEIGE_PRIMARY
 
     def __init__(self, config, screen_res):
         self.config = config or {}
@@ -32,131 +32,128 @@ class TopPanel:
                 (x - 4, y + 12), (x - 8, y + 12),
                 (x, y)
             ]
-            draw.polygon(points, fill=self.MAUVE)
+            draw.polygon(points, fill=self.BEIGE)
 
     def _draw_battery(self, draw, x_base, y_row):
         x_batt = x_base - 75
         y_batt = y_row - 10
-        draw.rectangle([x_batt, y_batt, x_batt + 20, y_batt + 10], outline=self.MAUVE, width=2)
-        draw.rectangle([x_batt + 20, y_batt + 3, x_batt + 22, y_batt + 7], fill=self.MAUVE)
+        
+        is_low = self.config.get("is_undervoltage", False)
+        color = (255, 50, 50) if is_low else self.BEIGE
+        
+        if not is_low:
+            # Solid beige fill when healthy
+            draw.rectangle([x_batt, y_batt, x_batt + 20, y_batt + 10], fill=color)
+        else:
+            # Empty red outline when low
+            draw.rectangle([x_batt, y_batt, x_batt + 20, y_batt + 10], outline=color, width=2)
+            
+        # Draw battery tip
+        draw.rectangle([x_batt + 20, y_batt + 3, x_batt + 22, y_batt + 7], fill=color)
+        
+        if is_low:
+            # Draw a warning slash through the battery to indicate power issues
+            draw.line([x_batt + 2, y_batt + 8, x_batt + 18, y_batt + 2], fill=color, width=2)
 
     def _draw_wifi(self, draw, x_base, y_row):
-        x_wifi = x_base - 115
-        y_wifi = y_row - 10
-        for i in range(1, 4):
-            r = i * 4
-            bbox = [x_wifi + 10 - r, y_wifi + 10 - r, x_wifi + 10 + r, y_wifi + 10 + r]
-            draw.arc(bbox, 225, 315, fill=self.MAUVE, width=2)
+        x_pos = x_base - 115
+        y_pos = y_row - 10
+
+        # Rule 1: The moment Hotspot is ON / in Connect mode -> Display "EC" badge
+        if self.config.get("show_connection_view") or self.config.get("is_connected"):
+            try:
+                from PIL import ImageFont
+                font_ec = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 11)
+            except Exception:
+                font_ec = None
+            draw_func = getattr(draw, "rounded_rectangle", draw.rectangle)
+            draw_func([x_pos - 4, y_pos - 1, x_pos + 22, y_pos + 15], radius=4, fill=(45, 40, 35), outline=self.BEIGE, width=1)
+            draw.text((x_pos + 1, y_pos), "EC", fill=self.BEIGE, font=font_ec)
+
+        # Rule 2: Otherwise, display Wi-Fi bars if connected to a Wi-Fi network
+        elif self.config.get("is_wifi_active"):
+            x_wifi = x_pos
+            y_wifi = y_pos
+            for i in range(1, 4):
+                r = i * 4
+                bbox = [x_wifi + 10 - r, y_wifi + 10 - r, x_wifi + 10 + r, y_wifi + 10 + r]
+                draw.arc(bbox, 225, 315, fill=self.BEIGE, width=2)
+
+        # Otherwise: Display nothing (no wifi / out of range)
 
     def _draw_gear(self, draw):
         """
-        Draws a small gear icon in the bottom-right corner.
+        Draws a large gear icon in the bottom-right corner for easy tapping.
         """
         w, h = self.screen_res
-        x, y = w - self.padding - 10, h - self.padding - 10
-        draw.ellipse([x-8, y-8, x+8, y+8], outline=self.MAUVE, width=2)
+        x, y = w - self.padding - 20, h - self.padding - 20
+        draw.ellipse([x-14, y-14, x+14, y+14], outline=self.BEIGE, width=3)
         for i in range(8):
             import math
             angle = i * (360/8)
-            x1 = x + 8 * math.cos(math.radians(angle))
-            y1 = y + 8 * math.sin(math.radians(angle))
-            x2 = x + 12 * math.cos(math.radians(angle))
-            y2 = y + 12 * math.sin(math.radians(angle))
-            draw.line([x1, y1, x2, y2], fill=self.MAUVE, width=2)
+            x1 = x + 14 * math.cos(math.radians(angle))
+            y1 = y + 14 * math.sin(math.radians(angle))
+            x2 = x + 22 * math.cos(math.radians(angle))
+            y2 = y + 22 * math.sin(math.radians(angle))
+            draw.line([x1, y1, x2, y2], fill=self.BEIGE, width=4)
+        draw.ellipse([x-6, y-6, x+6, y+6], fill=self.BEIGE)
 
     def _draw_gallery_icon(self, draw):
         """
-        Draws a small gallery (picture) icon in the bottom-left corner.
+        Draws a large gallery (picture) icon in the bottom-left corner.
         """
         w, h = self.screen_res
-        x, y = self.padding, h - self.padding - 10
-        # Draw a small "photo" frame
-        draw.rectangle([x, y-12, x+16, y+4], outline=self.MAUVE, width=2)
+        x, y = self.padding + 5, h - self.padding - 35
+        # Draw a large "photo" frame
+        draw.rectangle([x, y, x+40, y+30], outline=self.BEIGE, width=3)
         # Draw a "mountain" inside
-        draw.polygon([(x+3, y+2), (x+8, y-6), (x+13, y+2)], fill=self.MAUVE)
+        draw.polygon([(x+5, y+25), (x+15, y+10), (x+25, y+25)], fill=self.BEIGE)
+        draw.polygon([(x+20, y+25), (x+28, y+15), (x+35, y+25)], fill=self.BEIGE)
+        # Sun
+        draw.ellipse([x+8, y+5, x+14, y+11], fill=self.BEIGE)
         
         # Highlight if gallery is active
         if self.config.get("show_gallery"):
-            draw.text((x + 20, y - 8), "GALLERY", fill=self.MAUVE)
+            draw.text((x + 50, y + 5), "GALLERY", fill=self.BEIGE)
 
     def _draw_gallery_view(self, draw):
         """
-        Draws the gallery navigation arrows and header.
+        Draws the gallery UI. For single-button mode, we want this to be completely immersive.
         """
-        w, h = self.screen_res
-        
-        # 1. Reuse Settings Header Style
-        from PIL import ImageFont
-        try:
-            font_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
-            font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
-        except:
-            font_title = font_small = None
-            
-        title = "GALLERY"
-        header_h = 65
-        title_w = draw.textlength(title, font=font_title) if hasattr(draw, "textlength") else len(title) * 12
-        draw.text(((w - title_w) // 2, 20), title, fill=(255, 255, 255), font=font_title)
-        
-        # Separator Line (Same as Menu)
-        draw.line([(25, header_h), (w - 25, header_h)], fill=(60, 60, 75), width=1)
-        draw.line([(w//2 - 30, header_h), (w//2 + 30, header_h)], fill=self.MAUVE, width=2)
-        
-        # Standard Cross Button (Top Right)
-        bx, by = w - 60, 12
-        draw.rectangle([bx, by, bx + 40, by + 40], outline=self.MAUVE, width=2)
-        draw.line([bx + 10, by + 10, bx + 30, by + 30], fill=self.MAUVE, width=2)
-        draw.line([bx + 30, by + 10, bx + 10, by + 30], fill=self.MAUVE, width=2)
-
-        # 2. Navigation Arrows
-        arrow_size = 25
-        arrow_color = list(self.MAUVE) + [180]
-        
-        # Left Arrow
-        lx, ly = 25, h // 2 + 20
-        draw.polygon([(lx, ly), (lx + arrow_size, ly - arrow_size), (lx + arrow_size, ly + arrow_size)], fill=tuple(arrow_color))
-        
-        # Right Arrow
-        rx, ry = w - 25, h // 2 + 20
-        draw.polygon([(rx, ry), (rx - arrow_size, ry - arrow_size), (rx - arrow_size, ry + arrow_size)], fill=tuple(arrow_color))
-        
-        # 3. Navigation Arrows
-        arrow_size = 25
-        arrow_color = list(self.MAUVE) + [180]
-        
-        # Left Arrow
-        lx, ly = 25, h // 2 + 20
-        draw.polygon([(lx, ly), (lx + arrow_size, ly - arrow_size), (lx + arrow_size, ly + arrow_size)], fill=tuple(arrow_color))
-        
-        # Right Arrow
-        rx, ry = w - 25, h // 2 + 20
-        draw.polygon([(rx, ry), (rx - arrow_size, ry - arrow_size), (rx - arrow_size, ry + arrow_size)], fill=tuple(arrow_color))
+        pass
 
 
 
 
     def _draw_menu(self, draw):
         """
-        Draws a professional, aesthetic grid menu with card-based layout.
+        Draws a gorgeous horizontal scrolling carousel for single-button navigation.
         """
         w, h = self.screen_res
         show_submenu = self.config.get("show_submenu", False)
         current_submenu = self.config.get("current_submenu", "Modes")
         
         if not show_submenu:
-            items = ["Modes", "Connect", "Flash", "Grid"]
+            flash_pwr = "Flash: ON" if self.config.get("flash", True) else "Flash: OFF"
+            exp_val = f"Exp: {self.config.get('exposure_label', 'Auto')}"
+            items = ["Gallery", "Modes", exp_val, "Connect", flash_pwr, "Grid", "Exit"]
             selected_idx = self.config.get("menu_index", 0)
-            title = "SYSTEM SETTINGS"
+            title = "SYSTEM MENU"
         elif current_submenu == "Modes":
-            items = self.config.get("mode_names", ["Standard", "Glam", "Low Light", "Summer", "Indoor", "35mm", "UnI", "Nostalgia"])
+            items = self.config.get("mode_names", []) + ["Back"]
             selected_idx = self.config.get("submenu_index", 0)
             title = "SELECT VISION"
+        elif current_submenu == "Exposure":
+            items = ["Auto", "1/100s", "1/50s", "1/30s", "1/15s", "1/10s", "Back"]
+            selected_idx = self.config.get("submenu_index", 0)
+            title = "EXPOSURE TIME"
         elif current_submenu == "Grid":
-            items = ["OFF", "3x3", "Euclid"]
+            items = ["OFF", "3x3", "Euclid", "Back"]
             selected_idx = self.config.get("submenu_index", 0)
             title = "COMPOSITION"
         elif current_submenu == "Connect":
-            items = ["Show QR", "Stop Conn", "Back"]
+            wifi_pwr = "Hotspot: ON" if self.config.get("is_connected") else "Hotspot: OFF"
+            items = ["Show QR", wifi_pwr, "Back"]
             selected_idx = self.config.get("submenu_index", 0)
             title = "NETWORK"
         else:
@@ -164,21 +161,16 @@ class TopPanel:
             selected_idx = 0
             title = "MENU"
 
-        # 1. Solid Charcoal Background (Matching Capture Screen)
-        overlay_margin = 0 # Full screen menu
-        
         # Create a solid charcoal overlay image
-        bg_color = list(theme.BG_CHARCOAL) + [255] # Ensure solid alpha
+        bg_color = list(theme.BG_CHARCOAL) + [255]
         overlay = Image.new('RGBA', self.screen_res, tuple(bg_color))
         overlay_draw = ImageDraw.Draw(overlay)
         
         # --- PASTE LOGO WATERMARK ---
         try:
             import os
-            # Use absolute path resolution from this file up to the project root
-            # UI -> python -> firmware -> root -> splashscreen
             proj_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
-            logo_path = os.path.join(proj_root, "splashscreen", "transparent_logo.png")
+            logo_path = os.path.join(proj_root, "assets", "transparent_logo_light.png")
             logo = Image.open(logo_path).convert("RGBA")
             logo.thumbnail((250, 250), Image.LANCZOS)
             r, g, b, a = logo.split()
@@ -186,129 +178,133 @@ class TopPanel:
             logo = Image.merge('RGBA', (r, g, b, a))
             lw, lh = logo.size
             cx, cy = w // 2, h // 2
-            # Paste onto the translucent overlay
             overlay.paste(logo, (cx - lw // 2, cy - lh // 2), logo)
         except Exception as e:
             print(f"Theme watermark error: {e}")
 
         # Mauve Accent Border
-        overlay_draw.rectangle([overlay_margin, overlay_margin, w - overlay_margin, h - overlay_margin], outline=self.MAUVE, width=2)
-        # Delay alpha composite until all UI elements are drawn on overlay_draw
-        # Load Fonts
+        overlay_draw.rectangle([0, 0, w, h], outline=self.BEIGE, width=2)
 
+        # Load Fonts
         from PIL import ImageFont
         try:
-            font_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
+            font_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
             font_item = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
-            font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
+            font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
         except:
             font_title = font_item = font_small = None
 
-        # 2. Header Area
-        header_h = 65
-        title_w = overlay_draw.textlength(title, font=font_title) if hasattr(overlay_draw, "textlength") else len(title) * 12
+        # Header Area
+        title_w = overlay_draw.textlength(title, font=font_title) if hasattr(overlay_draw, "textlength") else len(title) * 11
         overlay_draw.text(((w - title_w) // 2, 20), title, fill=(255, 255, 255), font=font_title)
         
-        # Massive Cross Button (Top Right)
-        bx, by = w - 60, 12
-        overlay_draw.rectangle([bx, by, bx + 40, by + 40], outline=self.MAUVE, width=2)
-        # Draw a bold X
-        overlay_draw.line([bx + 10, by + 10, bx + 30, by + 30], fill=self.MAUVE, width=2)
-        overlay_draw.line([bx + 30, by + 10, bx + 10, by + 30], fill=self.MAUVE, width=2)
-        
         # Separator Line
-        overlay_draw.line([(25, header_h), (w - 25, header_h)], fill=(60, 60, 75), width=1)
-        overlay_draw.line([(w//2 - 30, header_h), (w//2 + 30, header_h)], fill=self.MAUVE, width=2)
+        header_h = 55
+        overlay_draw.line([(25, header_h), (w - 25, header_h)], fill=(90, 80, 70), width=1)
+        overlay_draw.line([(w//2 - 30, header_h), (w//2 + 30, header_h)], fill=self.BEIGE, width=2)
 
-        # 3. Grid Calculation
-        num_items = len(items)
-        cols = 4
-        rows = (num_items + cols - 1) // cols
-        
-        grid_margin_x = 25
-        grid_margin_y = 15
-        gap = 12
-        
-        available_w = w - (grid_margin_x * 2)
-        available_h = h - header_h - (grid_margin_y * 2)
-        
-        btn_w = (available_w - (gap * (cols - 1))) // cols
-        btn_h = (available_h - (gap * (rows - 1))) // rows
-        
-        for i, item in enumerate(items):
-            row = i // cols
-            col = i % cols
-            
-            bx = grid_margin_x + col * (btn_w + gap)
-            by = header_h + grid_margin_y + row * (btn_h + gap)
-            
-            is_selected = (i == selected_idx)
-            
-            # Button Card Logic - TRANSLUCENT GLASS EFFECT
-            card_fill = tuple(list(self.MAUVE) + [220]) if is_selected else (30, 30, 40, 150)
-            card_outline = (255, 255, 255) if is_selected else (70, 70, 90)
-            text_color = (0, 0, 0) if is_selected else (220, 220, 230)
-            accent_color = (255, 255, 255, 180) if is_selected else self.MAUVE
+        # Draw Carousel
+        n = len(items)
+        if n == 0:
+            return
 
-            # Draw Card (rounded_rectangle fallback)
+        prev_idx = (selected_idx - 1) % n
+        next_idx = (selected_idx + 1) % n
+
+        # Dimensions
+        center_w, center_h = 140, 100
+        cx, cy = w // 2, h // 2 + 25
+        
+        side_w, side_h = 100, 70
+        lx, ly = cx - center_w//2 - 15 - side_w//2, cy
+        rx, ry = cx + center_w//2 + 15 + side_w//2, cy
+
+        def draw_card(idx, x, y, width, height, is_selected):
+            bx = x - width // 2
+            by = y - height // 2
+            item = items[idx]
+            
+            card_fill = tuple(list(self.BEIGE) + [220]) if is_selected else (45, 40, 35, 180)
+            card_outline = (255, 255, 255) if is_selected else (140, 125, 110)
+            text_color = (15, 10, 5) if is_selected else (245, 240, 230)
+            accent_color = (255, 255, 255, 180) if is_selected else self.BEIGE
+            
             draw_func = getattr(overlay_draw, "rounded_rectangle", overlay_draw.rectangle)
-            draw_func([bx, by, bx + btn_w, by + btn_h], radius=10, fill=card_fill, outline=card_outline, width=2 if is_selected else 1)
-
-            # 4. Professional Iconography
-            icon_y = by + 22
-            cx = bx + btn_w // 2
+            draw_func([bx, by, bx + width, by + height], radius=10, fill=card_fill, outline=card_outline, width=3 if is_selected else 1)
             
-            if item == "Modes":
-                overlay_draw.ellipse([cx-12, icon_y-12, cx+12, icon_y+12], outline=text_color, width=2)
-                overlay_draw.ellipse([cx-4, icon_y-4, cx+4, icon_y+4], fill=text_color)
-            elif item == "Flash":
-                overlay_draw.polygon([(cx, icon_y-12), (cx-6, icon_y), (cx+4, icon_y), (cx-2, icon_y+12)], fill=text_color)
-            elif item == "Connect":
-                for r in [6, 12, 18]:
-                    overlay_draw.arc([cx-r, icon_y-r, cx+r, icon_y+r], start=210, end=330, fill=text_color, width=2)
-            elif item == "Grid":
-                for off in [-6, 6]:
-                    overlay_draw.line([cx+off, icon_y-10, cx+off, icon_y+10], fill=text_color, width=1)
-                    overlay_draw.line([cx-10, icon_y+off, cx+10, icon_y+off], fill=text_color, width=1)
-
             # Content Text
             display_name = item
             if item == "Connect":
                 status = "ON" if self.config.get("is_connected") else "OFF"
-                overlay_draw.text((bx + btn_w - 30, by + 8), status, fill=accent_color, font=font_small)
+                if is_selected:
+                    overlay_draw.text((bx + width - 35, by + 8), status, fill=accent_color, font=font_small)
+            elif item.startswith("Flash"):
+                status = "ON" if self.config.get("flash", True) else "OFF"
+                if is_selected:
+                    overlay_draw.text((bx + width - 35, by + 8), status, fill=accent_color, font=font_small)
             
-            tw = overlay_draw.textlength(display_name, font=font_item) if hasattr(overlay_draw, "textlength") else len(display_name) * 9
-            overlay_draw.text((bx + (btn_w - tw) // 2, by + btn_h - 22), display_name, fill=text_color, font=font_item)
+            font = font_item if is_selected else font_small
+            tw = overlay_draw.textlength(display_name, font=font) if hasattr(overlay_draw, "textlength") else len(display_name) * (9 if is_selected else 7)
+            
+            # Center the text vertically and horizontally
+            overlay_draw.text((bx + (width - tw) // 2, by + height // 2 - 10), display_name, fill=text_color, font=font)
 
-        # Finally, blend the fully populated RGBA overlay onto the main RGB image
+        # Draw left and right cards first (behind)
+        if n > 2:
+            draw_card(prev_idx, lx, ly, side_w, side_h, False)
+        if n > 1:
+            draw_card(next_idx, rx, ry, side_w, side_h, False)
+        
+        # Draw center card (in front)
+        draw_card(selected_idx, cx, cy, center_w, center_h, True)
+        
+        # Instructional text at bottom
+        inst_text = "Hold Shutter: Next  |  Click: Select"
+        iw = overlay_draw.textlength(inst_text, font=font_small) if hasattr(overlay_draw, "textlength") else len(inst_text) * 7
+        overlay_draw.text(((w - iw) // 2, h - 25), inst_text, fill=(150, 150, 150), font=font_small)
+
+        # Blend
         main_img = draw._image.convert("RGBA")
         main_img = Image.alpha_composite(main_img, overlay)
         draw._image.paste(main_img)
 
     def _draw_bin_icon(self, draw):
         """
-        Draws a transparent DELETE card in the top-left corner.
+        Draws a transparent DELETE icon in the top-left corner.
         """
-        bx, by = 15, 12
-        btn_w, btn_h = 100, 40
+        bx, by = 12, 12
+        btn_w, btn_h = 40, 40
         
         # Transparent Card (Outline only)
         draw_func = getattr(draw, "rounded_rectangle", draw.rectangle)
-        draw_func([bx, by, bx + btn_w, by + btn_h], radius=10, fill=(0, 0, 0, 0), outline=self.MAUVE, width=1)
+        draw_func([bx, by, bx + btn_w, by + btn_h], radius=8, fill=(0, 0, 0, 0), outline=self.BEIGE, width=2)
         
-        # Neutral Icon (White/Grey)
-        ix, iy = bx + 12, by + 10
+        # Neutral Trash Icon
+        ix, iy = bx + 15, by + 10
         icon_color = (220, 220, 230)
-        draw.rectangle([ix, iy + 4, ix + 10, iy + 16], outline=icon_color, width=1)
-        draw.line([(ix - 2, iy + 4), (ix + 12, iy + 4)], fill=icon_color, width=2)
+        draw.rectangle([ix, iy + 4, ix + 10, iy + 20], outline=icon_color, width=2)
+        draw.line([(ix - 4, iy + 4), (ix + 14, iy + 4)], fill=icon_color, width=2)
+        draw.line([(ix + 2, iy + 4), (ix + 2, iy)], fill=icon_color, width=2)
+        draw.line([(ix + 8, iy + 4), (ix + 8, iy)], fill=icon_color, width=2)
+        draw.line([(ix + 2, iy), (ix + 8, iy)], fill=icon_color, width=2)
+
+    def _draw_bt_icon(self, draw):
+        """
+        Draws a Bluetooth send icon next to the close button in the Gallery.
+        """
+        w, h = self.screen_res
+        bx, by = w - 100, 12
         
-        from PIL import ImageFont
-        try:
-            font_btn = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
-        except:
-            font_btn = None
-            
-        draw.text((bx + 35, by + 10), "DELETE", fill=icon_color, font=font_btn)
+        draw_func = getattr(draw, "rounded_rectangle", draw.rectangle)
+        draw_func([bx, by, bx + 40, by + 40], radius=8, fill=(0, 0, 0, 0), outline=self.BEIGE, width=2)
+        
+        ix, iy = bx + 20, by + 10
+        bt_color = (100, 150, 255)
+        draw.line([(ix, iy), (ix, iy + 20)], fill=bt_color, width=2)
+        draw.line([(ix, iy), (ix + 8, iy + 5)], fill=bt_color, width=2)
+        draw.line([(ix + 8, iy + 5), (ix - 8, iy + 15)], fill=bt_color, width=2)
+        draw.line([(ix, iy + 20), (ix + 8, iy + 15)], fill=bt_color, width=2)
+        draw.line([(ix + 8, iy + 15), (ix - 8, iy + 5)], fill=bt_color, width=2)
 
 
 
@@ -322,36 +318,59 @@ class TopPanel:
         x, y = (w - overlay_w) // 2, (h - overlay_h) // 2
         
         # Transparent-ish background box
-        draw.rectangle([x, y, x + overlay_w, y + overlay_h], fill=(0, 0, 0), outline=self.MAUVE, width=3)
+        draw.rectangle([x, y, x + overlay_w, y + overlay_h], fill=(0, 0, 0), outline=self.BEIGE, width=3)
         
-        # Close Button (Top Right of overlay) - Massive and easily tappable
-        bx, by = x + overlay_w - 70, y + 10
-        draw.rectangle([bx, by, bx + 60, by + 60], outline=self.MAUVE, width=2)
-        # Draw a bold X
-        draw.line([bx + 15, by + 15, bx + 45, by + 45], fill=self.MAUVE, width=3)
-        draw.line([bx + 45, by + 15, bx + 15, by + 45], fill=self.MAUVE, width=3)
-
         # Title
-        draw.text((x + 20, y + 25), "CONNECTIVITY ACTIVE", fill=self.MAUVE)
+        draw.text((x + 20, y + 20), "CONNECTIVITY ACTIVE", fill=self.BEIGE)
         
-        # Load the QR code image if it exists
-        import os
-        qr_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../connectivity/static/qr_code.png"))
-        if os.path.exists(qr_path):
+        # Generate the QR code dynamically to ensure correct IP
+        try:
+            import socket, fcntl, struct, qrcode
             try:
-                qr_img = Image.open(qr_path).convert("RGB")
-                qr_img = qr_img.resize((140, 140), Image.LANCZOS)
-                # Paste it onto the draw surface's image
-                draw._image.paste(qr_img, (x + (overlay_w - 140)//2, y + 50))
-            except Exception as e:
-                print(f"[ERROR] Loading QR for UI: {e}")
-                draw.text((x + 20, y + 100), "QR ERROR", fill=(255, 0, 0))
-        else:
-             draw.text((x + 20, y + 100), "GENERATING QR...", fill=self.MAUVE)
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                ip = socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack('256s', b'wlan0'))[20:24])
+            except Exception:
+                ip = "10.42.0.1" # fallback hotspot IP
+                
+            qr = qrcode.QRCode(version=1, border=2, box_size=10)
+            qr.add_data(f"http://{ip}:5000")
+            qr.make(fit=True)
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            
+            # Save to RAM disk (/tmp) to avoid library kwargs mismatch
+            tmp_path = "/tmp/euclidcam_qr.png"
+            qr_img.save(tmp_path)
+            
+            from PIL import Image
+            qr_pil = Image.open(tmp_path).convert("RGB")
+            qr_pil = qr_pil.resize((140, 140), Image.NEAREST)
+            draw._image.paste(qr_pil, (x + (overlay_w - 140)//2, y + 45))
+        except Exception as e:
+            print(f"[ERROR] Live QR generation failed: {e}")
+            draw.text((x + 10, y + 100), f"ERR: {str(e)[:30]}", fill=(255, 0, 0))
 
         # Instructions
-        draw.text((x + 20, y + overlay_h - 40), "Scan to browse images", fill=self.MAUVE)
-        draw.text((x + 20, y + overlay_h - 20), "Tap [X] or edges to close", fill=self.MAUVE)
+        draw.text((x + 20, y + overlay_h - 40), "Scan to browse images", fill=self.BEIGE)
+        draw.text((x + 20, y + overlay_h - 20), "Press shutter to exit", fill=self.BEIGE)
+
+    def _draw_toast(self, draw, text: str):
+        """Draws a sleek notification toast banner at top center of screen."""
+        w, h = self.screen_res
+        try:
+            from PIL import ImageFont
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
+        except Exception:
+            font = None
+            
+        tw = draw.textlength(text, font=font) if hasattr(draw, "textlength") else len(text) * 8
+        card_w, card_h = int(tw + 40), 36
+        cx, cy = w // 2, 30
+        bx, by = cx - card_w // 2, cy - card_h // 2
+        
+        draw_func = getattr(draw, "rounded_rectangle", draw.rectangle)
+        draw_func([bx, by, bx + card_w, by + card_h], radius=10, fill=(35, 30, 25, 230), outline=self.BEIGE, width=2)
+        
+        draw.text((bx + 20, by + 9), text, fill=(255, 255, 255), font=font)
 
     def render(self, frame):
         """
@@ -363,7 +382,6 @@ class TopPanel:
         show_gallery = self.config.get("show_gallery", False)
         
         if show_gallery:
-            self._draw_bin_icon(draw)
             self._draw_gallery_view(draw)
 
         elif self.config.get("show_connection_view", False):
@@ -380,7 +398,21 @@ class TopPanel:
                 self._draw_battery(draw, x_base, y_row)
                 self._draw_wifi(draw, x_base, y_row)
                 
-                self._draw_gear(draw)
-                self._draw_gallery_icon(draw)
+                # touch disabled for experiment
+                # self._draw_gear(draw)
+                # self._draw_gallery_icon(draw)
+                
+                if self.config.get("is_benchmark_mode"):
+                    uptime = self.config.get("benchmark_uptime", 0)
+                    mins = uptime // 60
+                    secs = uptime % 60
+                    draw.text((10, self.screen_res[1] - 25), f"BENCHMARK: {mins:02d}:{secs:02d}", fill=(255, 50, 50))
+
+        # Check for active toast notification
+        toast_text = self.config.get("wifi_connected_toast")
+        toast_time = self.config.get("wifi_connected_time", 0)
+        import time
+        if toast_text and (time.time() - toast_time < 4.0):
+            self._draw_toast(draw, toast_text)
 
         return np.array(img)
