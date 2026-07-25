@@ -24,7 +24,8 @@ class TopPanel:
             return self.padding, self.padding
 
     def _draw_flash(self, draw, x_base, y_row):
-        if self.config.get("flash"):
+        flash_mode = str(self.config.get("flash_mode", "AUTO")).upper()
+        if flash_mode != "OFF":
             x, y = x_base - 15, y_row - 14
             points = [
                 (x, y), (x - 8, y + 8),
@@ -32,7 +33,15 @@ class TopPanel:
                 (x - 4, y + 12), (x - 8, y + 12),
                 (x, y)
             ]
-            draw.polygon(points, fill=self.BEIGE)
+            fill_color = self.BEIGE if flash_mode == "ON" else (255, 215, 0) # Gold for AUTO
+            draw.polygon(points, fill=fill_color)
+            if flash_mode == "AUTO":
+                try:
+                    from PIL import ImageFont
+                    font_a = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 9)
+                except Exception:
+                    font_a = None
+                draw.text((x - 18, y + 8), "A", fill=(255, 215, 0), font=font_a)
 
     def _draw_battery(self, draw, x_base, y_row):
         x_batt = x_base - 75
@@ -134,7 +143,7 @@ class TopPanel:
         current_submenu = self.config.get("current_submenu", "Modes")
         
         if not show_submenu:
-            flash_pwr = "Flash: ON" if self.config.get("flash", True) else "Flash: OFF"
+            flash_pwr = f"Flash: {self.config.get('flash_mode', 'AUTO')}"
             exp_val = f"Exp: {self.config.get('exposure_label', 'Auto')}"
             items = ["Gallery", "Modes", exp_val, "Connect", flash_pwr, "Grid", "Exit"]
             selected_idx = self.config.get("menu_index", 0)

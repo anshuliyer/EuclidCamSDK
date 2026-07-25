@@ -175,12 +175,19 @@ def remote_flash():
     try:
         import json, time
         data = request.get_json(silent=True) or request.form or request.args
-        flash_val = data.get("flash", True)
+        flash_val = data.get("flash")
         if isinstance(flash_val, str):
-            flash_val = flash_val.lower() in ("true", "1", "on")
+            f_mode = flash_val.upper()
+            if f_mode not in ("ON", "AUTO", "OFF"):
+                f_mode = "AUTO"
+        elif isinstance(flash_val, bool):
+            f_mode = "ON" if flash_val else "OFF"
+        else:
+            f_mode = "AUTO"
+
         with open("/tmp/euclidcam_remote_cmd.json", "w") as f:
-            json.dump({"cmd": "set_flash", "flash": bool(flash_val), "time": time.time()}, f)
-        return {"success": True, "flash": bool(flash_val)}, 200
+            json.dump({"cmd": "set_flash", "flash": f_mode, "time": time.time()}, f)
+        return {"success": True, "flash": f_mode}, 200
     except Exception as e:
         return {"success": False, "message": str(e)}, 500
 

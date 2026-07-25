@@ -118,7 +118,7 @@
                 <div class="quick-controls-grid">
                     <div class="control-box">
                         <span class="control-label">FLASH LED</span>
-                        <button class="btn-toggle active" id="btn-flash-toggle" onclick="toggleRemoteFlash(this)">FLASH: ON</button>
+                        <button class="btn-toggle active" id="btn-flash-toggle" onclick="toggleRemoteFlash(this)">FLASH: AUTO</button>
                     </div>
                     <div class="control-box">
                         <span class="control-label">GRID OVERLAY</span>
@@ -347,18 +347,21 @@
             }
         }
 
-        let flashState = true;
+        let currentFlashMode = 'AUTO';
         async function toggleRemoteFlash(btn) {
-            flashState = !flashState;
+            if (currentFlashMode === 'AUTO') currentFlashMode = 'OFF';
+            else if (currentFlashMode === 'OFF') currentFlashMode = 'ON';
+            else currentFlashMode = 'AUTO';
+
             if (btn) {
-                btn.textContent = `FLASH: ${flashState ? 'ON' : 'OFF'}`;
-                if (flashState) btn.classList.add('active'); else btn.classList.remove('active');
+                btn.textContent = `FLASH: ${currentFlashMode}`;
+                if (currentFlashMode !== 'OFF') btn.classList.add('active'); else btn.classList.remove('active');
             }
             try {
-                await fetch('/api/remote/flash?flash=' + flashState + '&t=' + Date.now(), {
+                await fetch('/api/remote/flash?flash=' + currentFlashMode + '&t=' + Date.now(), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ flash: flashState })
+                    body: JSON.stringify({ flash: currentFlashMode })
                 });
             } catch (err) {
                 console.error(err);

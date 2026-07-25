@@ -259,6 +259,25 @@ class CameraMode:
         picam2.capture_file("temp.jpg")
         return Image.open("temp.jpg").convert("RGB")
 
+    def _should_trigger_flash(self, config: dict) -> bool:
+        """
+        Determines whether physical flash should fire:
+        - "ON": Always trigger flash
+        - "AUTO": Auto trigger if preview scene luma < 85.0
+        - "OFF": Never trigger flash
+        """
+        flash_mode = str(config.get("flash_mode", "AUTO")).upper()
+        if flash_mode == "ON":
+            return True
+        elif flash_mode == "OFF":
+            return False
+        elif flash_mode == "AUTO":
+            luma = float(config.get("current_preview_luma", 70.0))
+            is_dark = luma < 85.0
+            print(f"[FLASH AUTO] Preview scene luma: {luma:.1f} → Flash: {'TRIGGERED (DARK)' if is_dark else 'SKIPPED (BRIGHT)'}")
+            return is_dark
+        return False
+
     def capture(self, fb_map, config: dict, flash_drive: Any = None) -> None:
         """Standard capture pipeline shared by most modes."""
         photo_dir = config.get("photo_dir", ".")
@@ -267,8 +286,8 @@ class CameraMode:
         print(f"\n[SHUTTER] Capturing in {self.name} mode…")
         self._draw_capture_overlay(fb_map, config, "HOLD STILL")
 
-        # Physical Flash
-        if config.get("flash") and flash_drive:
+        # Physical Flash (ON or AUTO if dark)
+        if self._should_trigger_flash(config) and flash_drive:
             import threading
             threading.Thread(target=flash_drive.trigger, args=(1.0,), daemon=True).start()
 
@@ -371,8 +390,8 @@ class LowLightMode(CameraMode):
         print(f"\n[SHUTTER] Capturing in {self.name} mode…")
         self._draw_capture_overlay(fb_map, config, "HOLD STILL")
 
-        # Physical Flash
-        if config.get("flash") and flash_drive:
+        # Physical Flash (ON or AUTO if dark)
+        if self._should_trigger_flash(config) and flash_drive:
             import threading
             threading.Thread(target=flash_drive.trigger, args=(1.0,), daemon=True).start()
 
@@ -758,8 +777,17 @@ class InputHandler:
             config["show_menu"] = False
 
         elif selected == "Flash" or selected.startswith("Flash"):
-            config["flash"] = not config.get("flash", True)
-            print(f"[SYSTEM] Flash → {'ON' if config['flash'] else 'OFF'}")
+            current = str(config.get("flash_mode", "AUTO")).upper()
+            if current == "AUTO":
+                config["flash_mode"] = "OFF"
+                config["flash"] = False
+            elif current == "OFF":
+                config["flash_mode"] = "ON"
+                config["flash"] = True
+            else:
+                config["flash_mode"] = "AUTO"
+                config["flash"] = True
+            print(f"[SYSTEM] Flash mode → {config['flash_mode']}")
 
     # ── Sub-menu confirmation ─────────────────────────────────────────────────
 
@@ -967,9 +995,16 @@ class CameraEngine:
                         self.config["mode_idx"] = m_idx
                         print(f"[SYSTEM] Remote mode switched to index {m_idx} ({self.modes[m_idx].name})")
                 elif cmd == "set_flash":
-                    f_val = bool(cmd_data.get("flash", True))
-                    self.config["flash"] = f_val
-                    print(f"[SYSTEM] Remote flash set to {'ON' if f_val else 'OFF'}")
+                    f_val = cmd_data.get("flash", "AUTO")
+                    if isinstance(f_val, bool):
+                        f_mode = "ON" if f_val else "OFF"
+                    else:
+                        f_mode = str(f_val).upper()
+                        if f_mode not in ("ON", "AUTO", "OFF"):
+                            f_mode = "AUTO"
+                    self.config["flash_mode"] = f_mode
+                    self.config["flash"] = (f_mode != "OFF")
+                    print(f"[SYSTEM] Remote flash set to {f_mode}")
                 elif cmd == "set_grid":
                     g_val = str(cmd_data.get("grid", "OFF")).upper()
                     if g_val in ("RULE_OF_THIRDS", "THIRDS", "3X3"):
@@ -997,6 +1032,10 @@ class CameraEngine:
             # picam2.capture_array outputs BGR byte array. Convert BGR -> RGB for display & filters.
             raw = raw[:, :, ::-1]
             
+            # Calculate fast downsampled luma for auto flash detection
+            arr_luma = raw[::8, ::8, :]
+            self.config["current_preview_luma"] = float(np.mean(0.299 * arr_luma[:, :, 0] + 0.587 * arr_luma[:, :, 1] + 0.114 * arr_luma[:, :, 2]))
+
             mode  = self.modes[self.config["mode_idx"]]
             frame = mode.process_frame(raw)
 
@@ -1087,6 +1126,7 @@ def _build_default_config(argv: list[str]) -> dict:
         "is_connected":         False,
         "server_proc":          None,
         "flash":                True,
+        "flash_mode":           "AUTO",
         "exposure_label":       "Auto",
         "exposure_time":        0,
         "flicker_label":        "Auto",
