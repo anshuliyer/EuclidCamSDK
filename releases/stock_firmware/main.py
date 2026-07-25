@@ -979,12 +979,9 @@ class CameraEngine:
         if self.config.get("show_gallery"):
             frame = self.gallery.load_frame()
         else:
-            raw   = picam2.capture_array()
+            raw = picam2.capture_array()
             if raw is None:
                 return
-                
-            # picam2.capture_array defaults to BGR for OpenCV. Swap to standard RGB.
-            raw = raw[:, :, ::-1]
             
             mode  = self.modes[self.config["mode_idx"]]
             frame = mode.process_frame(raw)
