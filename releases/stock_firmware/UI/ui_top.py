@@ -313,7 +313,7 @@ class TopPanel:
 
 
 
-    def _draw_connection_overlay(self, draw):
+    def _draw_connection_overlay(self, draw, overlay_img):
         """
         Draws a large QR code and connection details in the center of the screen.
         """
@@ -321,20 +321,21 @@ class TopPanel:
         overlay_w, overlay_h = 300, 240
         x, y = (w - overlay_w) // 2, (h - overlay_h) // 2
         
-        # Transparent-ish background box
-        draw.rectangle([x, y, x + overlay_w, y + overlay_h], fill=(0, 0, 0), outline=self.BEIGE, width=3)
+        # Opaque dark background box
+        draw.rectangle([x, y, x + overlay_w, y + overlay_h], fill=(15, 12, 10, 245), outline=self.BEIGE, width=2)
         
         # Title
-        draw.text((x + 20, y + 20), "CONNECTIVITY ACTIVE", fill=self.BEIGE)
+        draw.text((x + 20, y + 15), "CONNECTIVITY ACTIVE", fill=self.BEIGE)
         
         # Generate the QR code dynamically to ensure correct IP
+        ip = "10.42.0.1" # default fallback hotspot IP
         try:
             import socket, fcntl, struct, qrcode
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 ip = socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack('256s', b'wlan0'))[20:24])
             except Exception:
-                ip = "10.42.0.1" # fallback hotspot IP
+                pass
                 
             qr = qrcode.QRCode(version=1, border=2, box_size=10)
             qr.add_data(f"http://{ip}:5000")
@@ -346,16 +347,17 @@ class TopPanel:
             qr_img.save(tmp_path)
             
             from PIL import Image
-            qr_pil = Image.open(tmp_path).convert("RGB")
-            qr_pil = qr_pil.resize((140, 140), Image.NEAREST)
-            draw._image.paste(qr_pil, (x + (overlay_w - 140)//2, y + 45))
+            qr_pil = Image.open(tmp_path).convert("RGBA")
+            qr_pil = qr_pil.resize((125, 125), Image.NEAREST)
+            # Paste QR image directly onto overlay layer so it appears over the dark background card
+            overlay_img.paste(qr_pil, (x + (overlay_w - 125) // 2, y + 42))
         except Exception as e:
             print(f"[ERROR] Live QR generation failed: {e}")
             draw.text((x + 10, y + 100), f"ERR: {str(e)[:30]}", fill=(255, 0, 0))
 
         # Instructions
-        draw.text((x + 20, y + overlay_h - 40), "Scan to browse images", fill=self.BEIGE)
-        draw.text((x + 20, y + overlay_h - 20), "Press shutter to exit", fill=self.BEIGE)
+        draw.text((x + 20, y + overlay_h - 45), f"SSID: EuclidCam | IP: {ip}:5000", fill=self.BEIGE)
+        draw.text((x + 20, y + overlay_h - 24), "Scan QR to open web app (Shutter to exit)", fill=self.BEIGE)
 
     def _draw_toast(self, draw, text: str):
         """Draws a sleek notification toast banner at top center of screen with light glass styling."""
@@ -412,8 +414,7 @@ class TopPanel:
             self._draw_gallery_view(draw)
 
         elif self.config.get("show_connection_view", False):
-            draw._image = img 
-            self._draw_connection_overlay(draw)
+            self._draw_connection_overlay(draw, overlay)
         else:
             if self.config.get("show_menu"):
                 self._draw_menu(draw)
