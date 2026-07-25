@@ -30,7 +30,7 @@ from typing import Any
 # ─── Third-party ───────────────────────────────────────────────────────────────
 import numpy as np
 from picamera2 import Picamera2
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 import board
 import digitalio
 import adafruit_rgb_display.ili9341 as ili9341
