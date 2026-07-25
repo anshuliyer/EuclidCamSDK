@@ -116,11 +116,14 @@ class CameraMode:
         pil_img: Image.Image,
         target_ratio: float = 1.5,
         zoom: float = 1.0,
+        config: dict | None = None,
     ) -> Image.Image:
         """
-        Centre-crop to *target_ratio* (3:2) and apply a *zoom* factor to
-        remove wide-angle lens distortion.  zoom=1.0 → pure 3:2 crop.
+        Centre-crop to *target_ratio* (default 3:2, or custom aspect_ratio) and apply *zoom*.
         """
+        if config and "target_ratio" in config:
+            target_ratio = config["target_ratio"]
+
         w, h = pil_img.size
         if w / h > target_ratio:
             crop_w, crop_h = h * target_ratio, float(h)
@@ -132,6 +135,20 @@ class CameraMode:
         left   = (w - final_w) / 2
         top    = (h - final_h) / 2
         return pil_img.crop((left, top, left + final_w, top + final_h))
+
+    def _apply_pro_optical_polish(self, pil_img: Image.Image) -> Image.Image:
+        """
+        Subtle pro optical engine pass applied to all captures:
+        - Softens extreme highlight clipping for a natural tone curve
+        - Micro-clarity & fine detail enhancement
+        """
+        img = pil_img.copy().convert("RGB")
+        r, g, b = img.split()
+        r = r.point(lambda i: int(i * 0.98 if i > 240 else i))
+        g = g.point(lambda i: int(i * 0.98 if i > 240 else i))
+        b = b.point(lambda i: int(i * 0.98 if i > 240 else i))
+        img = Image.merge("RGB", (r, g, b))
+        return ImageEnhance.Sharpness(img).enhance(1.12)
 
     def apply_filter(self, pil_img: Image.Image) -> Image.Image:
         """Apply mode-specific colour grading.  Override in subclasses."""
@@ -216,6 +233,11 @@ class CameraMode:
             if exp_time > 0:
                 controls["ExposureTime"] = exp_time
                 controls["AeEnable"] = False
+
+            flicker_mode = config.get("flicker_mode", 0)
+            if flicker_mode > 0:
+                controls["AeFlickerMode"] = flicker_mode
+
         cfg["controls"] = controls
         picam2.configure(cfg)
         picam2.start()
@@ -243,7 +265,7 @@ class CameraMode:
         }, config=config)
 
         self._draw_capture_overlay(fb_map, config, "APPLYING VISION…", progress=0.5)
-        processed = self.apply_filter(raw)
+        processed = self.apply_filter(raw, config=config)
 
         self._draw_capture_overlay(fb_map, config, "SAVING…", progress=0.8)
         filename = os.path.join(
@@ -270,11 +292,12 @@ class StandardMode(CameraMode):
     def __init__(self) -> None:
         super().__init__("Standard")
 
-    def apply_filter(self, pil_img: Image.Image) -> Image.Image:
-        return self._crop_and_zoom(pil_img)
+    def apply_filter(self, pil_img: Image.Image, config: dict | None = None) -> Image.Image:
+        img = self._crop_and_zoom(pil_img, config=config)
+        return self._apply_pro_optical_polish(img)
 
-    def process_frame(self, frame: np.ndarray) -> np.ndarray:
-        img = self._crop_and_zoom(Image.fromarray(frame))
+    def process_frame(self, frame: np.ndarray, config: dict | None = None) -> np.ndarray:
+        img = self._crop_and_zoom(Image.fromarray(frame), config=config)
         return np.array(img.resize(SCREEN_RES, Image.LANCZOS))
 
 
@@ -296,12 +319,13 @@ class FilterMode(CameraMode):
             None,
         )
 
-    def apply_filter(self, pil_img: Image.Image) -> Image.Image:
-        img = self._crop_and_zoom(pil_img)
-        return self.filter_func(img) if self.filter_func else img
+    def apply_filter(self, pil_img: Image.Image, config: dict | None = None) -> Image.Image:
+        img = self._crop_and_zoom(pil_img, config=config)
+        img = self.filter_func(img) if self.filter_func else img
+        return self._apply_pro_optical_polish(img)
 
-    def process_frame(self, frame: np.ndarray) -> np.ndarray:
-        img = self._crop_and_zoom(Image.fromarray(frame))
+    def process_frame(self, frame: np.ndarray, config: dict | None = None) -> np.ndarray:
+        img = self._crop_and_zoom(Image.fromarray(frame), config=config)
         img = img.resize(SCREEN_RES, Image.LANCZOS)
         if self.filter_func:
             img = self.filter_func(img)
@@ -337,7 +361,7 @@ class LowLightMode(CameraMode):
         time.sleep(0.1)
 
         self._draw_capture_overlay(fb_map, config, "ENHANCING LIGHT…", progress=0.5)
-        processed = self.apply_filter(raw)
+        processed = self.apply_filter(raw, config=config)
 
         self._draw_capture_overlay(fb_map, config, "SAVING RAW…", progress=0.8)
         filename = os.path.join(
@@ -356,11 +380,13 @@ class LowLightMode(CameraMode):
         picam2.stop()
         start_preview()
 
-    def apply_filter(self, pil_img: Image.Image) -> Image.Image:
-        return low_light.apply_low_light_filter(self._crop_and_zoom(pil_img))
+    def apply_filter(self, pil_img: Image.Image, config: dict | None = None) -> Image.Image:
+        img = self._crop_and_zoom(pil_img, config=config)
+        img = low_light.apply_low_light_filter(img)
+        return self._apply_pro_optical_polish(img)
 
-    def process_frame(self, frame: np.ndarray) -> np.ndarray:
-        img = self._crop_and_zoom(Image.fromarray(frame))
+    def process_frame(self, frame: np.ndarray, config: dict | None = None) -> np.ndarray:
+        img = self._crop_and_zoom(Image.fromarray(frame), config=config)
         img = low_light.apply_low_light_filter(img.resize(SCREEN_RES, Image.LANCZOS))
         return np.array(img)
 
@@ -512,9 +538,12 @@ class InputHandler:
     Keeps all navigation / selection logic out of the main loop.
     """
 
-    _MAIN_MENU_ITEMS = ["Gallery", "Modes", "Exposure", "Connect", "Flash", "Grid", "Exit"]
+    _MAIN_MENU_ITEMS = ["Gallery", "Modes", "Exposure", "Flicker", "Ratio", "Connect", "Flash", "Grid", "Exit"]
     _GRID_OPTIONS    = ["OFF", "3x3", "Euclid", "Back"]
     _EXPOSURE_OPTIONS = ["Auto", "1/100s", "1/50s", "1/30s", "1/15s", "1/10s", "Back"]
+    _FLICKER_OPTIONS  = ["Auto", "50Hz", "60Hz", "OFF", "Back"]
+    _RATIO_OPTIONS    = ["3:2", "16:9", "1:1", "4:3", "Back"]
+
     _EXPOSURE_MAP = {
         "Auto": 0,
         "1/100s": 10000,
@@ -522,6 +551,18 @@ class InputHandler:
         "1/30s": 33333,
         "1/15s": 66666,
         "1/10s": 100000,
+    }
+    _FLICKER_MAP = {
+        "Auto": 0,
+        "50Hz": 1,
+        "60Hz": 2,
+        "OFF": 0,
+    }
+    _RATIO_MAP = {
+        "3:2": 1.5,
+        "16:9": 1.7777777777777777,
+        "1:1": 1.0,
+        "4:3": 1.3333333333333333,
     }
 
     def __init__(
@@ -675,6 +716,16 @@ class InputHandler:
             config["current_submenu"] = "Exposure"
             config["submenu_index"]   = 0
 
+        elif selected.startswith("Flicker"):
+            config["show_submenu"]    = True
+            config["current_submenu"] = "Flicker"
+            config["submenu_index"]   = 0
+
+        elif selected.startswith("Ratio"):
+            config["show_submenu"]    = True
+            config["current_submenu"] = "Ratio"
+            config["submenu_index"]   = 0
+
         elif selected == "Grid":
             config["show_submenu"]    = True
             config["current_submenu"] = "Grid"
@@ -744,6 +795,28 @@ class InputHandler:
             config["show_submenu"] = False
             config["show_menu"] = False
 
+        elif submenu == "Flicker":
+            if idx == len(self._FLICKER_OPTIONS) - 1: # Back
+                config["show_submenu"] = False
+                return
+            opt = self._FLICKER_OPTIONS[idx]
+            config["flicker_label"] = opt
+            config["flicker_mode"] = self._FLICKER_MAP.get(opt, 0)
+            print(f"[SYSTEM] Anti-Flicker → {opt}")
+            config["show_submenu"] = False
+            config["show_menu"] = False
+
+        elif submenu == "Ratio":
+            if idx == len(self._RATIO_OPTIONS) - 1: # Back
+                config["show_submenu"] = False
+                return
+            opt = self._RATIO_OPTIONS[idx]
+            config["ratio_label"] = opt
+            config["target_ratio"] = self._RATIO_MAP.get(opt, 1.5)
+            print(f"[SYSTEM] Aspect Ratio → {opt}")
+            config["show_submenu"] = False
+            config["show_menu"] = False
+
         config["show_submenu"] = False
         config["show_menu"]    = False
 
@@ -755,6 +828,10 @@ class InputHandler:
             return len(self._modes) + 1 # +1 for Back
         elif sub == "Exposure":
             return len(self._EXPOSURE_OPTIONS)
+        elif sub == "Flicker":
+            return len(self._FLICKER_OPTIONS)
+        elif sub == "Ratio":
+            return len(self._RATIO_OPTIONS)
         return len(self._GRID_OPTIONS)
 
 
@@ -1037,6 +1114,10 @@ def _build_default_config(argv: list[str]) -> dict:
         "flash":                True,
         "exposure_label":       "Auto",
         "exposure_time":        0,
+        "flicker_label":        "Auto",
+        "flicker_mode":         0,
+        "ratio_label":          "3:2",
+        "target_ratio":         1.5,
         "show_connection_view": False,
         "is_wifi_active":       False,
         "is_benchmark_mode":    "--benchmark" in argv,

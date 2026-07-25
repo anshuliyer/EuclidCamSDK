@@ -136,7 +136,9 @@ class TopPanel:
         if not show_submenu:
             flash_pwr = "Flash: ON" if self.config.get("flash", True) else "Flash: OFF"
             exp_val = f"Exp: {self.config.get('exposure_label', 'Auto')}"
-            items = ["Gallery", "Modes", exp_val, "Connect", flash_pwr, "Grid", "Exit"]
+            flick_val = f"Flicker: {self.config.get('flicker_label', 'Auto')}"
+            ratio_val = f"Ratio: {self.config.get('ratio_label', '3:2')}"
+            items = ["Gallery", "Modes", exp_val, flick_val, ratio_val, "Connect", flash_pwr, "Grid", "Exit"]
             selected_idx = self.config.get("menu_index", 0)
             title = "SYSTEM MENU"
         elif current_submenu == "Modes":
@@ -147,6 +149,14 @@ class TopPanel:
             items = ["Auto", "1/100s", "1/50s", "1/30s", "1/15s", "1/10s", "Back"]
             selected_idx = self.config.get("submenu_index", 0)
             title = "EXPOSURE TIME"
+        elif current_submenu == "Flicker":
+            items = ["Auto", "50Hz", "60Hz", "OFF", "Back"]
+            selected_idx = self.config.get("submenu_index", 0)
+            title = "ANTI-FLICKER"
+        elif current_submenu == "Ratio":
+            items = ["3:2", "16:9", "1:1", "4:3", "Back"]
+            selected_idx = self.config.get("submenu_index", 0)
+            title = "ASPECT RATIO"
         elif current_submenu == "Grid":
             items = ["OFF", "3x3", "Euclid", "Back"]
             selected_idx = self.config.get("submenu_index", 0)
@@ -372,6 +382,27 @@ class TopPanel:
         
         draw.text((bx + 20, by + 9), text, fill=(255, 255, 255), font=font)
 
+    def _draw_pro_hud(self, draw):
+        """Draws a pro-camera HUD badge at top-left of viewfinder."""
+        try:
+            from PIL import ImageFont
+            font_hud = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 10)
+        except Exception:
+            font_hud = None
+
+        mode_name = str(self.config.get("active_mode_name", "STANDARD")).upper()
+        exp = str(self.config.get("exposure_label", "AUTO")).upper()
+        ratio = str(self.config.get("ratio_label", "3:2"))
+        
+        hud_text = f"● {mode_name} | {exp} | {ratio}"
+        tw = draw.textlength(hud_text, font=font_hud) if hasattr(draw, "textlength") else len(hud_text) * 6
+        badge_w, badge_h = int(tw + 16), 18
+        bx, by = 12, 10
+        
+        draw_func = getattr(draw, "rounded_rectangle", draw.rectangle)
+        draw_func([bx, by, bx + badge_w, by + badge_h], radius=5, fill=(25, 20, 15, 200), outline=self.BEIGE, width=1)
+        draw.text((bx + 8, by + 3), hud_text, fill=(255, 235, 205), font=font_hud)
+
     def render(self, frame):
         """
         Applies the UI overlay to the provided frame.
@@ -397,10 +428,7 @@ class TopPanel:
                 self._draw_flash(draw, x_base, y_row)
                 self._draw_battery(draw, x_base, y_row)
                 self._draw_wifi(draw, x_base, y_row)
-                
-                # touch disabled for experiment
-                # self._draw_gear(draw)
-                # self._draw_gallery_icon(draw)
+                self._draw_pro_hud(draw)
                 
                 if self.config.get("is_benchmark_mode"):
                     uptime = self.config.get("benchmark_uptime", 0)
