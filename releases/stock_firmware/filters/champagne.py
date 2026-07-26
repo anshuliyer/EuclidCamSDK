@@ -11,18 +11,19 @@ FB_DEVICE = "/dev/fb1"
 SCREEN_RES = (480, 320)
 FPS_CAP = 3 
 
-def apply_champagne_filter(pil_img):
+LUT_R = bytes([min(255, int(i * 1.05)) for i in range(256)])
+LUT_G = bytes([min(255, int(i * 1.05)) for i in range(256)])
+LUT_B = bytes([min(255, int(i + 20)) for i in range(256)])
+
+def apply_champagne_filter(pil_img: Image.Image, is_preview: bool = False) -> Image.Image:
     """Champagne filter: Soft, warm, elegant."""
     r, g, b = pil_img.split()
-    r = r.point(lambda i: i * 1.05)
-    g = g.point(lambda i: i * 1.05)
-    b = b.point(lambda i: min(255, i + 20))
-    pil_img = Image.merge('RGB', (r, g, b))
-    enhancer = ImageEnhance.Contrast(pil_img)
-    pil_img = enhancer.enhance(0.9)
-    enhancer = ImageEnhance.Brightness(pil_img)
-    pil_img = enhancer.enhance(1.1)
-    return pil_img
+    r = r.point(LUT_R)
+    g = g.point(LUT_G)
+    b = b.point(LUT_B)
+    img = Image.merge('RGB', (r, g, b))
+    img = ImageEnhance.Contrast(img).enhance(0.9)
+    return ImageEnhance.Brightness(img).enhance(1.1)
 
 def display_to_map(data_array, fb_map):
     r = data_array[:, :, 0].astype(np.uint16)

@@ -5,38 +5,25 @@ import numpy as np
 import mmap
 from picamera2 import Picamera2
 from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
 
 # Config
 FB_DEVICE = "/dev/fb1" 
 SCREEN_RES = (480, 320)
 FPS_CAP = 3 
 
-def apply_indoor_filter(pil_img):
-    """
-    Simulates a low-light indoor flash aesthetic.
-    Very lifted, brown/magenta tinted shadows, low contrast, warm highlights.
-    """
-    from PIL import ImageEnhance
-    
-    # Reduce contrast significantly to muddy the image
-    enhancer_contrast = ImageEnhance.Contrast(pil_img)
-    pil_img = enhancer_contrast.enhance(0.8)
-    
-    # Boost color slightly
-    enhancer_color = ImageEnhance.Color(pil_img)
-    pil_img = enhancer_color.enhance(1.1)
-    
-    r, g, b = pil_img.split()
-    
-    # Indoor flash look:
-    # Lift shadows significantly, tint them brownish/warm (red/green > blue)
-    # R: strong lift in shadows, warm highlights
-    r = r.point(lambda i: min(255, int(i * 1.05 + 40)))
-    # G: lift shadows slightly less than red to keep it warm/magenta
-    g = g.point(lambda i: min(255, int(i * 1.05 + 30)))
-    # B: barely lift shadows, but keep overall blue lower to preserve warmth
-    b = b.point(lambda i: min(255, int(i * 0.95 + 20)))
-    
+LUT_R = bytes([min(255, int(i * 1.05 + 40)) for i in range(256)])
+LUT_G = bytes([min(255, int(i * 1.02 + 30)) for i in range(256)])
+LUT_B = bytes([min(255, int(i * 0.92 + 15)) for i in range(256)])
+
+def apply_indoor_filter(pil_img: Image.Image, is_preview: bool = False) -> Image.Image:
+    """Simulates a low-light indoor flash aesthetic with lifted warm tones."""
+    img = ImageEnhance.Contrast(pil_img).enhance(0.85)
+    img = ImageEnhance.Color(img).enhance(1.1)
+    r, g, b = img.split()
+    r = r.point(LUT_R)
+    g = g.point(LUT_G)
+    b = b.point(LUT_B)
     return Image.merge('RGB', (r, g, b))
 
 def display_to_map(data_array, fb_map):

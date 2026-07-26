@@ -77,15 +77,18 @@ picam2 = Picamera2()
 #  Helpers
 # ==============================================================================
 
-def display_to_map(data_array: np.ndarray, fb_map, config: dict = None) -> None:
-    """Convert an RGB888 numpy array and write it to the ILI9341 display."""
+POLISH_LUT = bytes([int(i * 0.98) if i > 240 else i for i in range(256)])
+
+def display_to_map(data, fb_map, config: dict = None) -> None:
+    """Send Image or numpy array directly to the ILI9341 display."""
+    if isinstance(data, Image.Image):
+        img = data.convert("RGB")
+    else:
+        img = Image.fromarray(np.asarray(data, dtype=np.uint8)).convert("RGB")
+
     if config and config.get("ui_rotation") == 180:
-        data_array = np.rot90(data_array, 2)
-        
-    # Ensure it is explicitly an 8-bit RGB image to avoid any grayscale/distorted rendering
-    img = Image.fromarray(np.asarray(data_array, dtype=np.uint8)).convert("RGB")
-    
-    # Send directly to the display, allowing the library to handle rotation
+        img = img.rotate(180)
+
     disp.image(img)
 
 
@@ -148,14 +151,13 @@ class CameraMode:
     def _apply_pro_optical_polish(self, pil_img: Image.Image) -> Image.Image:
         """
         Subtle pro optical engine pass applied to all captures:
-        - Softens extreme highlight clipping for a natural tone curve
-        - Micro-clarity & fine detail enhancement
+        Uses 256-byte LUT C-level table for instant execution.
         """
         img = pil_img.copy().convert("RGB")
         r, g, b = img.split()
-        r = r.point(lambda i: int(i * 0.98 if i > 240 else i))
-        g = g.point(lambda i: int(i * 0.98 if i > 240 else i))
-        b = b.point(lambda i: int(i * 0.98 if i > 240 else i))
+        r = r.point(POLISH_LUT)
+        g = g.point(POLISH_LUT)
+        b = b.point(POLISH_LUT)
         img = Image.merge("RGB", (r, g, b))
         return ImageEnhance.Sharpness(img).enhance(1.12)
 
@@ -329,9 +331,10 @@ class StandardMode(CameraMode):
         img = self._crop_and_zoom(pil_img, config=config)
         return self._apply_pro_optical_polish(img)
 
-    def process_frame(self, frame: np.ndarray, config: dict | None = None) -> np.ndarray:
-        img = self._crop_and_zoom(Image.fromarray(frame), config=config)
-        return np.array(img.resize(SCREEN_RES, Image.LANCZOS))
+    def process_frame(self, frame: Image.Image | np.ndarray, config: dict | None = None) -> Image.Image:
+        pil_img = frame if isinstance(frame, Image.Image) else Image.fromarray(frame)
+        img = self._crop_and_zoom(pil_img, config=config)
+        return img.resize(SCREEN_RES, Image.NEAREST)
 
 
 class FilterMode(CameraMode):
@@ -363,8 +366,9 @@ class FilterMode(CameraMode):
                 img = self.filter_func(img)
         return self._apply_pro_optical_polish(img)
 
-    def process_frame(self, frame: np.ndarray, config: dict | None = None) -> np.ndarray:
-        img = self._crop_and_zoom(Image.fromarray(frame), config=config)
+    def process_frame(self, frame: Image.Image | np.ndarray, config: dict | None = None) -> Image.Image:
+        pil_img = frame if isinstance(frame, Image.Image) else Image.fromarray(frame)
+        img = self._crop_and_zoom(pil_img, config=config)
         img = img.resize(SCREEN_RES, Image.NEAREST)
         if self.filter_func:
             import inspect
@@ -373,7 +377,7 @@ class FilterMode(CameraMode):
                 img = self.filter_func(img, is_preview=True)
             else:
                 img = self.filter_func(img)
-        return np.array(img)
+        return img
 
 
 class LowLightMode(CameraMode):
@@ -1044,35 +1048,40 @@ class CameraEngine:
             if raw is None:
                 return
             
-            # picam2.capture_array outputs BGR byte array. Convert BGR -> RGB for display & filters.
-            raw = raw[:, :, ::-1]
+            # Convert raw array once to PIL Image to avoid repetitive conversion overhead
+            raw_pil = Image.fromarray(raw[:, :, ::-1])
             
-            # Calculate fast downsampled luma for auto flash detection
-            arr_luma = raw[::8, ::8, :]
+            # Fast downsampled luma check on low-res thumbnail
+            thumb = raw_pil.resize((40, 30), Image.NEAREST)
+            arr_luma = np.array(thumb, dtype=np.float32)
             self.config["current_preview_luma"] = float(np.mean(0.299 * arr_luma[:, :, 0] + 0.587 * arr_luma[:, :, 1] + 0.114 * arr_luma[:, :, 2]))
 
             mode  = self.modes[self.config["mode_idx"]]
             self.config["active_mode_name"] = mode.name
-            frame = mode.process_frame(raw)
+            frame_pil = mode.process_frame(raw_pil)
 
-            # Compositional grid overlay
-            pil   = Image.fromarray(frame)
-            pil   = self.grid_mgr.apply(pil, self.config["grid_mode"])
-            frame = np.array(pil)
+            # Compositional grid overlay directly on PIL Image
+            grid_mode = self.config.get("grid_mode", grid_settings.CompositionGrid.OFF)
+            if grid_mode != grid_settings.CompositionGrid.OFF:
+                frame_pil = self.grid_mgr.apply(frame_pil, grid_mode)
 
-        frame = self.panel.render(frame)
+            frame = frame_pil
+
+        final_frame = self.panel.render(frame)
         
-        # Export stream frame atomically for web remote live view
+        # Export stream frame0 atomically for web remote live view
         try:
             tmp_path = "/tmp/euclidcam_stream_tmp.jpg"
             final_path = "/tmp/euclidcam_stream.jpg"
-            pil_stream = Image.fromarray(frame)
-            pil_stream.save(tmp_path, format="JPEG", quality=70)
+            if isinstance(final_frame, Image.Image):
+                final_frame.save(tmp_path, format="JPEG", quality=70)
+            else:
+                Image.fromarray(final_frame).save(tmp_path, format="JPEG", quality=70)
             os.replace(tmp_path, final_path)
         except Exception:
             pass
 
-        display_to_map(frame, fb_map, config=self.config)
+        display_to_map(final_frame, fb_map, config=self.config)
 
     def _process_input(self, fb_map) -> None:
         """Read physical button input (Touch disabled for single-button mode)."""

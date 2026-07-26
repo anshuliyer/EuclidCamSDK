@@ -11,22 +11,14 @@ FB_DEVICE = "/dev/fb1"
 SCREEN_RES = (480, 320)
 FPS_CAP = 3 
 
-def apply_glam_filter(pil_img):
+def apply_glam_filter(pil_img: Image.Image, is_preview: bool = False) -> Image.Image:
     """Simulates a high-contrast, soft-focus black and white glamour aesthetic."""
-    # 1. Convert to grayscale
-    pil_img = pil_img.convert('L')
-    
-    # 2. Boost contrast significantly for the harsh flash look
-    enhancer_contrast = ImageEnhance.Contrast(pil_img)
-    pil_img = enhancer_contrast.enhance(1.8)
-    
-    # 3. Soften the image slightly (glamour glow)
-    # Create a blurred copy and blend it using screen/lighten or just standard alpha
-    blurred = pil_img.filter(ImageFilter.GaussianBlur(radius=2))
-    pil_img = Image.blend(pil_img, blurred, alpha=0.3)
-    
-    # Convert back to RGB so it plays nice with the rest of the pipeline
-    return pil_img.convert('RGB')
+    img = pil_img.convert('L')
+    img = ImageEnhance.Contrast(img).enhance(1.8)
+    if not is_preview:
+        blurred = img.filter(ImageFilter.GaussianBlur(radius=2))
+        img = Image.blend(img, blurred, alpha=0.3)
+    return img.convert('RGB')
 
 def display_to_map(data_array, fb_map):
     r = data_array[:, :, 0].astype(np.uint16)

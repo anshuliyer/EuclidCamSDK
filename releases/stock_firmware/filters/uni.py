@@ -11,22 +11,18 @@ FB_DEVICE = "/dev/fb1"
 SCREEN_RES = (480, 320)
 FPS_CAP = 3 
 
-def apply_uni_filter(pil_img):
-    """UnI aesthetic: Warm, vintage film look with lifted shadows and yellow/orange tint."""
-    enhancer_color = ImageEnhance.Color(pil_img)
-    pil_img = enhancer_color.enhance(1.1)
-    
-    enhancer_contrast = ImageEnhance.Contrast(pil_img)
-    pil_img = enhancer_contrast.enhance(0.9)
-    
-    r, g, b = pil_img.split()
-    
-    # Warm up: boost red, slightly boost green, reduce blue.
-    # Lift shadows by adding a constant offset.
-    r = r.point(lambda i: min(255, int(i * 1.15 + 15)))
-    g = g.point(lambda i: min(255, int(i * 1.05 + 10)))
-    b = b.point(lambda i: min(255, int(i * 0.85 + 5)))
-    
+LUT_R = bytes([min(255, int(i * 1.15 + 15)) for i in range(256)])
+LUT_G = bytes([min(255, int(i * 1.05 + 10)) for i in range(256)])
+LUT_B = bytes([min(255, int(i * 0.85 + 5)) for i in range(256)])
+
+def apply_uni_filter(pil_img: Image.Image, is_preview: bool = False) -> Image.Image:
+    """UnI aesthetic: Warm, vintage film look with lifted shadows."""
+    img = ImageEnhance.Color(pil_img).enhance(1.1)
+    img = ImageEnhance.Contrast(img).enhance(0.9)
+    r, g, b = img.split()
+    r = r.point(LUT_R)
+    g = g.point(LUT_G)
+    b = b.point(LUT_B)
     return Image.merge('RGB', (r, g, b))
 
 def display_to_map(data_array, fb_map):

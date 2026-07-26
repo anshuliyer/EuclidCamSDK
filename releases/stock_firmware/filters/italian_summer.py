@@ -11,21 +11,17 @@ FB_DEVICE = "/dev/fb1"
 SCREEN_RES = (480, 320)
 FPS_CAP = 3 
 
-def apply_italian_summer_filter(pil_img):
+LUT_R = bytes([min(255, int(i * 1.1)) for i in range(256)])
+LUT_G = bytes([min(255, int(i * 1.05)) for i in range(256)])
+LUT_B = bytes([min(255, int(i * 0.9)) for i in range(256)])
+
+def apply_italian_summer_filter(pil_img: Image.Image, is_preview: bool = False) -> Image.Image:
     """Adds a warm, golden tint and boosts saturation for a summer look."""
-    # 1. Boost Saturation slightly
-    converter = ImageEnhance.Color(pil_img)
-    pil_img = converter.enhance(1.2)
-    
-    # 2. Apply Warm Tint (Golden/Yellow-Red)
-    # R, G, B channels
-    r, g, b = pil_img.split()
-    
-    # Red is boosted for warmth, Blue is slightly reduced for the golden effect
-    r = r.point(lambda i: i * 1.1) 
-    g = g.point(lambda i: i * 1.05)
-    b = b.point(lambda i: i * 0.9)
-    
+    img = ImageEnhance.Color(pil_img).enhance(1.2)
+    r, g, b = img.split()
+    r = r.point(LUT_R)
+    g = g.point(LUT_G)
+    b = b.point(LUT_B)
     return Image.merge('RGB', (r, g, b))
 
 def display_to_map(data_array, fb_map):

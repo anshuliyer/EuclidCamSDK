@@ -413,7 +413,10 @@ class TopPanel:
         """
         Applies the UI overlay to the provided frame with RGBA alpha compositing for glass effects.
         """
-        img = Image.fromarray(frame).convert("RGBA")
+        if isinstance(frame, Image.Image):
+            img = frame.convert("RGBA")
+        else:
+            img = Image.fromarray(frame).convert("RGBA")
         overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
         

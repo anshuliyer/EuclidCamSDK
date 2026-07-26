@@ -11,26 +11,18 @@ FB_DEVICE = "/dev/fb1"
 SCREEN_RES = (480, 320)
 FPS_CAP = 3 
 
-def apply_film35mm_filter(pil_img):
-    """Simulates a vintage 35mm point-and-shoot flash aesthetic (warm highlights, blue/faded shadows)."""
-    # Slightly reduce contrast to fade the image
-    enhancer_contrast = ImageEnhance.Contrast(pil_img)
-    pil_img = enhancer_contrast.enhance(0.9)
-    
-    # Boost saturation slightly
-    enhancer_color = ImageEnhance.Color(pil_img)
-    pil_img = enhancer_color.enhance(1.15)
-    
-    r, g, b = pil_img.split()
-    
-    # 35mm Flash look: 
-    # Red: Boost midtones/highlights for warm skin tones.
-    # Blue: Lift shadows significantly for a vintage film fade, reduce highlights.
-    # Green: Slight overall lift.
-    r = r.point(lambda i: min(255, int(i * 1.1 + 5)))
-    g = g.point(lambda i: min(255, int(i * 1.05 + 10)))
-    b = b.point(lambda i: min(255, int(i * 0.9 + 30)))
-    
+LUT_R = bytes([min(255, int(i * 1.1 + 5)) for i in range(256)])
+LUT_G = bytes([min(255, int(i * 1.05 + 10)) for i in range(256)])
+LUT_B = bytes([min(255, int(i * 0.9 + 30)) for i in range(256)])
+
+def apply_film35mm_filter(pil_img: Image.Image, is_preview: bool = False) -> Image.Image:
+    """Simulates a vintage 35mm point-and-shoot flash aesthetic."""
+    img = ImageEnhance.Contrast(pil_img).enhance(0.9)
+    img = ImageEnhance.Color(img).enhance(1.15)
+    r, g, b = img.split()
+    r = r.point(LUT_R)
+    g = g.point(LUT_G)
+    b = b.point(LUT_B)
     return Image.merge('RGB', (r, g, b))
 
 def display_to_map(data_array, fb_map):
